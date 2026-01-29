@@ -13,15 +13,25 @@ PID_FILE="/opt/var/run/trusttunnel.pid"
 LOG_FILE="/opt/var/log/trusttunnel.log"
 WATCHDOG_PID_FILE="/opt/var/run/trusttunnel_watchdog.pid"
 
+LOG_TAG="TrustTunnel"
+
 [ "$ENABLED" != "yes" ] && exit 0
+
+log_info() {
+    logger -t "$LOG_TAG" "$1"
+}
+
+log_error() {
+    logger -p err -t "$LOG_TAG" "$1"
+}
 
 check_prereq() {
     if [ ! -x "$CLIENT_BIN" ]; then
-        echo "Error: $CLIENT_BIN not found or not executable"
+        log_error "$CLIENT_BIN not found or not executable"
         exit 1
     fi
     if [ ! -f "$CONFIG_FILE" ]; then
-        echo "Error: $CONFIG_FILE not found"
+        log_error "$CONFIG_FILE not found"
         exit 1
     fi
 }
@@ -53,7 +63,7 @@ watchdog() {
 
     while true; do
         if ! is_running; then
-            echo "$(date): Client not running, starting..." >> "$LOG_FILE"
+            log_info "Client not running, starting..."
             start_client
         fi
         sleep 10
@@ -62,11 +72,11 @@ watchdog() {
 
 start_client() {
     if is_running; then
-        echo "$DESC is already running (PID: $(get_pid))"
+        log_info "$DESC is already running (PID: $(get_pid))"
         return 1
     fi
 
-    echo "Starting $DESC..."
+    log_info "Starting $DESC..."
 
     $CLIENT_BIN $ARGS >> "$LOG_FILE" 2>&1 &
     pid=$!
@@ -75,10 +85,10 @@ start_client() {
     sleep 2
 
     if is_running; then
-        echo "$DESC started (PID: $pid)"
+        log_info "$DESC started (PID: $pid)"
         return 0
     else
-        echo "Failed to start $DESC"
+        log_error "Failed to start $DESC"
         rm -f "$PID_FILE"
         return 1
     fi
@@ -104,22 +114,22 @@ start() {
     if [ -f "$WATCHDOG_PID_FILE" ]; then
         wpid=$(cat "$WATCHDOG_PID_FILE" 2>/dev/null)
         if [ -n "$wpid" ] && kill -0 "$wpid" 2>/dev/null; then
-            echo "$DESC watchdog is already running"
+            log_info "$DESC watchdog is already running"
             return 1
         fi
     fi
 
     start_client
 
-    echo "Starting watchdog..."
+    log_info "Starting watchdog..."
     $0 watchdog &
     disown 2>/dev/null
 
-    echo "$DESC with watchdog started"
+    log_info "$DESC with watchdog started"
 }
 
 stop() {
-    echo "Stopping $DESC..."
+    log_info "Stopping $DESC..."
 
     stop_watchdog
 
@@ -139,9 +149,9 @@ stop() {
         fi
 
         rm -f "$PID_FILE"
-        echo "$DESC stopped"
+        log_info "$DESC stopped"
     else
-        echo "$DESC is not running"
+        log_info "$DESC is not running"
     fi
 }
 
@@ -152,7 +162,7 @@ restart() {
 }
 
 reload() {
-    echo "Reloading $DESC..."
+    log_info "Reloading $DESC..."
 
     pid=$(get_pid)
     if [ -n "$pid" ]; then
@@ -161,26 +171,26 @@ reload() {
         sleep 2
     fi
 
-    echo "Client will be restarted by watchdog"
+    log_info "Client will be restarted by watchdog"
 }
 
 status() {
     if is_running; then
-        echo "$DESC is running (PID: $(get_pid))"
+        log_info "$DESC is running (PID: $(get_pid))"
 
         if [ -f "$WATCHDOG_PID_FILE" ]; then
             wpid=$(cat "$WATCHDOG_PID_FILE" 2>/dev/null)
             if [ -n "$wpid" ] && kill -0 "$wpid" 2>/dev/null; then
-                echo "Watchdog is running (PID: $wpid)"
+                log_info "Watchdog is running (PID: $wpid)"
             else
-                echo "Watchdog is NOT running"
+                log_info "Watchdog is NOT running"
             fi
         else
-            echo "Watchdog is NOT running"
+            log_info "Watchdog is NOT running"
         fi
         return 0
     else
-        echo "$DESC is not running"
+        log_info "$DESC is not running"
         return 1
     fi
 }
@@ -203,7 +213,7 @@ case "$1" in
         ;;
     check)
         if ! is_running; then
-            echo "$(date): WAN reconnect detected, restarting client" >> "$LOG_FILE"
+            log_info "WAN reconnect detected, restarting client"
             reload
         fi
         ;;

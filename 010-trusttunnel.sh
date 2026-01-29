@@ -1,10 +1,10 @@
 #!/bin/sh
 
-LOG_FILE="/opt/var/log/trusttunnel.log"
+LOG_TAG="TrustTunnel"
 
 sleep 5
 
-echo "$(date): WAN interface up, checking TrustTunnel..." >> "$LOG_FILE"
+logger -t "$LOG_TAG" "WAN interface up, checking TrustTunnel..."
 
 /opt/etc/init.d/S99trusttunnel reload
 
