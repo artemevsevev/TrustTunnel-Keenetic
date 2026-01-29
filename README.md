@@ -125,6 +125,13 @@ cd /opt/trusttunnel_client/
 
 Подробная документация: https://github.com/TrustTunnel/TrustTunnel
 
+В файле `trusttunnel_client.toml` должен быть настроен SOCKS-прокси listener:
+
+```toml
+[listener.socks]
+address = "127.0.0.1:1080"
+```
+
 ---
 
 ## Быстрая установка на Keenetic
@@ -146,15 +153,6 @@ wget -qO- https://raw.githubusercontent.com/artemevsevev/TrustTunnel-Keenetic/ma
 2. Создать конфигурацию `/opt/trusttunnel_client/trusttunnel_client.toml`
 3. Сделать бинарник исполняемым: `chmod +x /opt/trusttunnel_client/trusttunnel_client`
 4. Запустить сервис: `/opt/etc/init.d/S99trusttunnel start`
-
-### Настройка конфигурации клиента
-
-В файле `trusttunnel_client.toml` должен быть настроен SOCKS-прокси listener:
-
-```toml
-[listener.socks]
-address = "127.0.0.1:1080"
-```
 
 ### Настройка прокси в веб-интерфейсе Keenetic
 
