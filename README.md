@@ -93,7 +93,7 @@ cd /opt/trusttunnel/
 
 ### 2. Установка клиента
 
-Скачайте клиент для архитектуры вашего роутера:
+Скачайте клиент на роутере:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/TrustTunnel/TrustTunnelClient/refs/heads/master/scripts/install.sh | sh -s -
@@ -101,21 +101,13 @@ curl -fsSL https://raw.githubusercontent.com/TrustTunnel/TrustTunnelClient/refs/
 
 Поддерживаемые архитектуры: x86_64, aarch64, armv7, mips, mipsel.
 
-Для Keenetic обычно нужна архитектура **mipsel** или **aarch64** (зависит от модели).
-
-После скачивания бинарник на роутере должен быть в `/opt/trusttunnel_client/`.
-
-Сделать бинарник исполняемым: `chmod +x /opt/trusttunnel_client/trusttunnel_client`
-
 #### Настройка клиента
 
 Сгенерируйте конфигурацию из файла, экспортированного с сервера:
 
 ```bash
 cd /opt/trusttunnel_client/
-./setup_wizard --mode non-interactive \
-  --endpoint_config config.toml \
-  --settings trusttunnel_client.toml
+./setup_wizard --mode non-interactive --endpoint_config config.toml --settings trusttunnel_client.toml
 ```
 
 Подробная документация: https://github.com/TrustTunnel/TrustTunnel
@@ -123,11 +115,23 @@ cd /opt/trusttunnel_client/
 В файле `trusttunnel_client.toml` должен быть настроен SOCKS-прокси listener:
 
 ```toml
+[listener]
+
 [listener.socks]
+# IP address to bind the listener to
 address = "127.0.0.1:1080"
+# Username for authentication if desired
+username = ""
+# Password for authentication if desired
+password = ""
 ```
 
 Секции `[listener.tun]` в файле быть не должно.
+
+Проверить запуск:
+```bash
+./trusttunnel_client -c trusttunnel_client.toml
+```
 
 ---
 
