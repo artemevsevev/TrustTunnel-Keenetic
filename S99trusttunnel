@@ -9,11 +9,19 @@ PATH=/opt/sbin:/opt/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:
 
 CLIENT_BIN="/opt/trusttunnel_client/trusttunnel_client"
 CONFIG_FILE="/opt/trusttunnel_client/trusttunnel_client.toml"
+MODE_CONF="/opt/trusttunnel_client/mode.conf"
 PID_FILE="/opt/var/run/trusttunnel.pid"
 LOG_FILE="/opt/var/log/trusttunnel.log"
 WATCHDOG_PID_FILE="/opt/var/run/trusttunnel_watchdog.pid"
 
 LOG_TAG="TrustTunnel"
+
+# Load mode (defaults to socks5)
+TT_MODE="socks5"
+TUN_IP=""
+if [ -f "$MODE_CONF" ]; then
+    . "$MODE_CONF"
+fi
 
 [ "$ENABLED" != "yes" ] && exit 0
 
@@ -33,6 +41,63 @@ check_prereq() {
     if [ ! -f "$CONFIG_FILE" ]; then
         log_error "$CONFIG_FILE not found"
         exit 1
+    fi
+}
+
+wait_and_rename_tun() {
+    if [ "$TT_MODE" != "tun" ]; then
+        return 0
+    fi
+
+    log_info "Waiting for tun0 to appear..."
+    elapsed=0
+    while [ $elapsed -lt 30 ]; do
+        if ip link show tun0 >/dev/null 2>&1; then
+            log_info "tun0 detected, renaming to opkgtun0..."
+            ip link set tun0 down 2>/dev/null
+            ip link set tun0 name opkgtun0 2>/dev/null
+            ip link set opkgtun0 up 2>/dev/null
+            if ip link show opkgtun0 >/dev/null 2>&1; then
+                log_info "tun0 renamed to opkgtun0 successfully"
+                return 0
+            else
+                log_error "Failed to rename tun0 to opkgtun0"
+                return 1
+            fi
+        fi
+        sleep 1
+        elapsed=$((elapsed + 1))
+    done
+
+    log_error "tun0 did not appear within 30 seconds"
+    return 1
+}
+
+cleanup_tun() {
+    if [ "$TT_MODE" != "tun" ]; then
+        return 0
+    fi
+
+    if ip link show opkgtun0 >/dev/null 2>&1; then
+        ip link set opkgtun0 down 2>/dev/null
+        log_info "opkgtun0 brought down"
+    fi
+    if ip link show tun0 >/dev/null 2>&1; then
+        ip link set tun0 down 2>/dev/null
+        log_info "tun0 brought down"
+    fi
+}
+
+fix_unrenamed_tun() {
+    if [ "$TT_MODE" != "tun" ]; then
+        return 0
+    fi
+
+    if ip link show tun0 >/dev/null 2>&1 && ! ip link show opkgtun0 >/dev/null 2>&1; then
+        log_info "Detected unrenamed tun0, renaming to opkgtun0..."
+        ip link set tun0 down 2>/dev/null
+        ip link set tun0 name opkgtun0 2>/dev/null
+        ip link set opkgtun0 up 2>/dev/null
     fi
 }
 
@@ -64,7 +129,10 @@ watchdog() {
     while true; do
         if ! is_running; then
             log_info "Client not running, starting..."
+            cleanup_tun
             start_client
+        else
+            fix_unrenamed_tun
         fi
         sleep 10
     done
@@ -86,6 +154,7 @@ start_client() {
 
     if is_running; then
         log_info "$DESC started (PID: $pid)"
+        wait_and_rename_tun
         return 0
     else
         log_error "Failed to start $DESC"
@@ -149,6 +218,7 @@ stop() {
         fi
 
         rm -f "$PID_FILE"
+        cleanup_tun
         log_info "$DESC stopped"
     else
         log_info "$DESC is not running"
@@ -175,6 +245,8 @@ reload() {
 }
 
 status() {
+    log_info "Mode: $TT_MODE"
+
     if is_running; then
         log_info "$DESC is running (PID: $(get_pid))"
 
@@ -188,6 +260,17 @@ status() {
         else
             log_info "Watchdog is NOT running"
         fi
+
+        if [ "$TT_MODE" = "tun" ]; then
+            if ip link show opkgtun0 >/dev/null 2>&1; then
+                log_info "TUN interface: opkgtun0 is UP"
+            elif ip link show tun0 >/dev/null 2>&1; then
+                log_info "TUN interface: tun0 exists (not yet renamed)"
+            else
+                log_info "TUN interface: not found"
+            fi
+        fi
+
         return 0
     else
         log_info "$DESC is not running"
