@@ -85,20 +85,20 @@ MEOF
 echo "mode.conf сохранён (TT_MODE=$TT_MODE)."
 
 # === Policy + Interface ===
-if ask_yes_no "Создать policy TrustTunnel и интерфейс TrustTunnel?"; then
+if [ "$TT_MODE" = "socks5" ]; then
+    if ask_yes_no "Создать policy TrustTunnel и интерфейс Proxy5?"; then
 
-    if ! command -v ndmc >/dev/null 2>&1; then
-        echo "Ошибка: команда 'ndmc' не найдена. Настройка интерфейсов невозможна."
-        echo "Настройте интерфейс и policy вручную через веб-интерфейс роутера."
-    else
-        ndmc_iface_output=$(ndmc -c 'show interface' 2>&1) || {
-            echo "Ошибка: не удалось получить список интерфейсов от ndmc."
+        if ! command -v ndmc >/dev/null 2>&1; then
+            echo "Ошибка: команда 'ndmc' не найдена. Настройка интерфейсов невозможна."
             echo "Настройте интерфейс и policy вручную через веб-интерфейс роутера."
-            ndmc_iface_output=""
-        }
+        else
+            ndmc_iface_output=$(ndmc -c 'show interface' 2>&1) || {
+                echo "Ошибка: не удалось получить список интерфейсов от ndmc."
+                echo "Настройте интерфейс и policy вручную через веб-интерфейс роутера."
+                ndmc_iface_output=""
+            }
 
-        if [ -n "$ndmc_iface_output" ]; then
-            if [ "$TT_MODE" = "socks5" ]; then
+            if [ -n "$ndmc_iface_output" ]; then
                 # --- SOCKS5 Interface ---
                 if echo "$ndmc_iface_output" | grep -q '^Proxy5'; then
                     echo "Интерфейс Proxy5 уже существует — пропускаю."
@@ -115,45 +115,29 @@ if ask_yes_no "Создать policy TrustTunnel и интерфейс TrustTunn
                     echo "Интерфейс Proxy5 создан."
                 fi
 
-                IFACE_NAME="Proxy5"
-            else
-                # --- TUN Interface ---
-                if echo "$ndmc_iface_output" | grep -q '^OpkgTun0'; then
-                    echo "Интерфейс OpkgTun0 уже существует — пропускаю."
+                # --- Policy ---
+                ndmc_policy_output=$(ndmc -c 'show ip policy' 2>&1) || ndmc_policy_output=""
+                if [ -n "$ndmc_policy_output" ] && echo "$ndmc_policy_output" | grep -q '^TrustTunnel'; then
+                    echo "Policy TrustTunnel уже существует — пропускаю."
                 else
-                    echo "Создаю интерфейс OpkgTun0..."
-                    ndmc -c 'interface OpkgTun0'
-                    ndmc -c 'interface OpkgTun0 description TrustTunnel'
-                    ndmc -c "interface OpkgTun0 ip address $TUN_IP 255.255.255.255"
-                    ndmc -c 'interface OpkgTun0 ip global auto'
-                    ndmc -c 'interface OpkgTun0 ip mtu 1280'
-                    ndmc -c 'interface OpkgTun0 ip tcp adjust-mss pmtu'
-                    ndmc -c 'interface OpkgTun0 security-level public'
-                    ndmc -c 'interface OpkgTun0 up'
-                    echo "Интерфейс OpkgTun0 создан."
+                    echo "Создаю ip policy TrustTunnel..."
+                    ndmc -c 'ip policy TrustTunnel'
+                    ndmc -c 'ip policy TrustTunnel description TrustTunnel'
+                    ndmc -c 'ip policy TrustTunnel permit global Proxy5'
+                    echo "Policy TrustTunnel создана."
                 fi
 
-                IFACE_NAME="OpkgTun0"
+                ndmc -c 'system configuration save'
+                echo "Конфигурация сохранена."
             fi
-
-            # --- Policy ---
-            ndmc_policy_output=$(ndmc -c 'show ip policy' 2>&1) || ndmc_policy_output=""
-            if [ -n "$ndmc_policy_output" ] && echo "$ndmc_policy_output" | grep -q '^TrustTunnel'; then
-                echo "Policy TrustTunnel уже существует — пропускаю."
-            else
-                echo "Создаю ip policy TrustTunnel..."
-                ndmc -c 'ip policy TrustTunnel'
-                ndmc -c 'ip policy TrustTunnel description TrustTunnel'
-                ndmc -c "ip policy TrustTunnel permit global $IFACE_NAME"
-                echo "Policy TrustTunnel создана."
-            fi
-
-            ndmc -c 'system configuration save'
-            echo "Конфигурация сохранена."
         fi
+    else
+        echo "Настройка policy и интерфейса пропущена."
     fi
 else
-    echo "Настройка policy и интерфейса пропущена."
+    echo ""
+    echo "Интерфейс OpkgTun0 и policy TrustTunnel будут созданы автоматически"
+    echo "при запуске сервиса (после поднятия TUN-интерфейса)."
 fi
 
 

@@ -109,7 +109,7 @@ wget -qO- https://raw.githubusercontent.com/artemevsevev/TrustTunnel-Keenetic/ma
 1. Предложит выбрать режим работы (SOCKS5 или TUN)
 2. Скачает и установит скрипты автозапуска (`S99trusttunnel`, `010-trusttunnel.sh`)
 3. Сохранит выбранный режим в `/opt/trusttunnel_client/mode.conf`
-4. Предложит создать интерфейс (Proxy5 для SOCKS5 или OpkgTun0 для TUN) и политику маршрутизации TrustTunnel в Keenetic
+4. Для SOCKS5: предложит создать интерфейс Proxy5 и политику маршрутизации TrustTunnel в Keenetic. Для TUN: интерфейс OpkgTun0 и политика создаются автоматически при запуске сервиса
 5. Предложит установить/обновить клиент TrustTunnel (поддерживаемые архитектуры: x86_64, aarch64, armv7, mips, mipsel)
 
 ### Сравнение режимов
@@ -193,7 +193,7 @@ mtu_size = 1280
 
 #### Режим TUN
 
-Интерфейс OpkgTun0 появится автоматически в веб-интерфейсе Keenetic после запуска клиента и переименования `tun0` в `opkgtun0`. Для ручной настройки через CLI:
+Интерфейс OpkgTun0 и политика TrustTunnel создаются автоматически при запуске сервиса (после переименования `tun0` в `opkgtun0`). Ручная настройка обычно не требуется. При необходимости можно создать через CLI:
 
 ```bash
 ndmc -c 'interface OpkgTun0'
@@ -302,8 +302,9 @@ tail -f /opt/var/log/trusttunnel.log
 ### Режим TUN (OpkgTun0)
 - TrustTunnel Client создаёт интерфейс `tun0`
 - Init-скрипт ожидает появления `tun0` (до 30 секунд) и переименовывает его в `opkgtun0`
+- После переименования автоматически создаётся ndmc-интерфейс `OpkgTun0` и policy `TrustTunnel` (если их ещё нет)
 - Keenetic распознаёт `opkgtun0` как интерфейс `OpkgTun0` и применяет маршрутизацию/firewall
-- Watchdog проверяет и исправляет непереименованный `tun0` при каждом цикле
+- Watchdog проверяет и исправляет непереименованный `tun0` при каждом цикле, а также пересоздаёт ndmc-интерфейс при необходимости (например, после сброса конфигурации роутера)
 
 ### Защита от дублей
 - PID-файл предотвращает запуск нескольких экземпляров
@@ -375,13 +376,19 @@ logread | grep TrustTunnel | tail -20
 ```
 
 ### OpkgTun0 не виден в веб-интерфейсе Keenetic
+
+Интерфейс и policy создаются автоматически при запуске сервиса. Если они не появились:
+
 ```bash
 # Проверьте, что интерфейс создан в Keenetic
 ndmc -c 'show interface' | grep OpkgTun0
 
-# Если нет — создайте вручную (замените IP)
+# Перезапустите сервис — интерфейс создастся автоматически
+/opt/etc/init.d/S99trusttunnel restart
+
+# Если нужно создать вручную (замените IP)
 ndmc -c 'interface OpkgTun0'
-ndmc -c 'interface OpkgTun0 ip address 10.0.0.2 255.255.255.255'
+ndmc -c 'interface OpkgTun0 ip address 172.16.219.2 255.255.255.255'
 ndmc -c 'interface OpkgTun0 ip global auto'
 ndmc -c 'interface OpkgTun0 security-level public'
 ndmc -c 'interface OpkgTun0 up'
