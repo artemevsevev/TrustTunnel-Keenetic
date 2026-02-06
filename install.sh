@@ -4,12 +4,12 @@ set -e
 
 REPO_URL="https://raw.githubusercontent.com/artemevsevev/TrustTunnel-Keenetic/main"
 
-echo "=== TrustTunnel Keenetic Installer ==="
+echo "=== Установщик TrustTunnel для Keenetic ==="
 echo ""
 
 if [ ! -d "/opt" ]; then
-    echo "Error: /opt not found. Please install Entware first."
-    echo "See: https://help.keenetic.com/hc/en-us/articles/360021214160"
+    echo "Ошибка: /opt не найден. Сначала установите Entware."
+    echo "Подробнее: https://help.keenetic.com/hc/en-us/articles/360021214160"
     exit 1
 fi
 
@@ -35,7 +35,7 @@ echo ""
 TUN_IP="172.16.219.2"
 if [ "$TT_MODE" = "tun" ]; then
     if ! command -v ip >/dev/null 2>&1; then
-        echo "Error: команда 'ip' не найдена. Установите пакет ip-full:"
+        echo "Ошибка: команда 'ip' не найдена. Установите пакет ip-full:"
         echo "  opkg update && opkg install ip-full"
         exit 1
     fi
@@ -43,18 +43,18 @@ if [ "$TT_MODE" = "tun" ]; then
     echo ""
 fi
 
-echo "Creating directories..."
+echo "Создаю директории..."
 mkdir -p /opt/etc/init.d
 mkdir -p /opt/etc/ndm/wan.d
 mkdir -p /opt/var/run
 mkdir -p /opt/var/log
 mkdir -p /opt/trusttunnel_client
 
-echo "Downloading S99trusttunnel..."
+echo "Скачиваю S99trusttunnel..."
 curl -fsSL "$REPO_URL/S99trusttunnel" -o /opt/etc/init.d/S99trusttunnel
 chmod +x /opt/etc/init.d/S99trusttunnel
 
-echo "Downloading 010-trusttunnel.sh..."
+echo "Скачиваю 010-trusttunnel.sh..."
 curl -fsSL "$REPO_URL/010-trusttunnel.sh" -o /opt/etc/ndm/wan.d/010-trusttunnel.sh
 chmod +x /opt/etc/ndm/wan.d/010-trusttunnel.sh
 
@@ -136,11 +136,11 @@ else
 fi
 
 echo ""
-echo "=== Installation complete ==="
+echo "=== Установка завершена ==="
 echo ""
-echo "Next steps:"
-echo "1. Create config file /opt/trusttunnel_client/trusttunnel_client.toml"
-echo "2. Make binary executable: chmod +x /opt/trusttunnel_client/trusttunnel_client"
+echo "Дальнейшие шаги:"
+echo "1. Создайте файл конфигурации /opt/trusttunnel_client/trusttunnel_client.toml"
+echo "2. Сделайте бинарник исполняемым: chmod +x /opt/trusttunnel_client/trusttunnel_client"
 if [ "$TT_MODE" = "tun" ]; then
     echo ""
     echo "   В конфигурации клиента добавьте секцию [listener.tun]:"
@@ -150,5 +150,5 @@ if [ "$TT_MODE" = "tun" ]; then
     echo ""
     echo "   Секции [listener.socks] в файле быть не должно."
 fi
-echo "3. Start service: /opt/etc/init.d/S99trusttunnel start"
+echo "3. Запустите сервис: /opt/etc/init.d/S99trusttunnel start"
 echo ""
