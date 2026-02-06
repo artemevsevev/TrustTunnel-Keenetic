@@ -136,36 +136,59 @@ ensure_ndmc_tun_interface() {
     changed=false
 
     # --- OpkgTun0 interface ---
-    ndmc_iface_output=$(ndmc -c 'show interface' 2>&1) || return 0
-    if ! echo "$ndmc_iface_output" | grep -q '^OpkgTun0'; then
+    if ! ndmc -c 'show interface' 2>/dev/null | grep -q 'OpkgTun0'; then
         log_info "Creating ndmc interface OpkgTun0..."
         touch "$NDMC_SETUP_FLAG"
-        ndmc -c 'interface OpkgTun0'
-        ndmc -c 'interface OpkgTun0 description TrustTunnel'
-        ndmc -c "interface OpkgTun0 ip address $TUN_IP 255.255.255.255"
-        ndmc -c 'interface OpkgTun0 ip global auto'
-        ndmc -c 'interface OpkgTun0 ip mtu 1280'
-        ndmc -c 'interface OpkgTun0 ip tcp adjust-mss pmtu'
-        ndmc -c 'interface OpkgTun0 security-level public'
-        ndmc -c 'interface OpkgTun0 up'
+        # Keenetic needs time to detect the renamed opkgtun0 device;
+        # retry up to 5 times with 3-second intervals
+        iface_ok=false
+        ndmc -c 'interface OpkgTun0' 2>/dev/null
+        if ndmc -c 'show interface' 2>/dev/null | grep -q 'OpkgTun0'; then
+            iface_ok=true
+        else
+            attempt=0
+            while [ $attempt -lt 5 ]; do
+                sleep 3
+                log_info "OpkgTun0 not ready, retrying ($((attempt + 1))/5)..."
+                ndmc -c 'interface OpkgTun0' 2>/dev/null
+                if ndmc -c 'show interface' 2>/dev/null | grep -q 'OpkgTun0'; then
+                    iface_ok=true
+                    break
+                fi
+                attempt=$((attempt + 1))
+            done
+        fi
+
+        if ! $iface_ok; then
+            log_error "Failed to create OpkgTun0 in ndmc"
+            rm -f "$NDMC_SETUP_FLAG"
+            return 1
+        fi
+
+        ndmc -c 'interface OpkgTun0 description TrustTunnel' 2>/dev/null
+        ndmc -c "interface OpkgTun0 ip address $TUN_IP 255.255.255.255" 2>/dev/null
+        ndmc -c 'interface OpkgTun0 ip global auto' 2>/dev/null
+        ndmc -c 'interface OpkgTun0 ip mtu 1280' 2>/dev/null
+        ndmc -c 'interface OpkgTun0 ip tcp adjust-mss pmtu' 2>/dev/null
+        ndmc -c 'interface OpkgTun0 security-level public' 2>/dev/null
+        ndmc -c 'interface OpkgTun0 up' 2>/dev/null
         log_info "ndmc interface OpkgTun0 created"
         changed=true
     fi
 
     # --- TrustTunnel policy ---
-    ndmc_policy_output=$(ndmc -c 'show ip policy' 2>&1) || return 0
-    if ! echo "$ndmc_policy_output" | grep -q '^TrustTunnel'; then
+    if ! ndmc -c 'show ip policy' 2>/dev/null | grep -q 'TrustTunnel'; then
         log_info "Creating ip policy TrustTunnel..."
         [ ! -f "$NDMC_SETUP_FLAG" ] && touch "$NDMC_SETUP_FLAG"
-        ndmc -c 'ip policy TrustTunnel'
-        ndmc -c 'ip policy TrustTunnel description TrustTunnel'
-        ndmc -c 'ip policy TrustTunnel permit global OpkgTun0'
+        ndmc -c 'ip policy TrustTunnel' 2>/dev/null
+        ndmc -c 'ip policy TrustTunnel description TrustTunnel' 2>/dev/null
+        ndmc -c 'ip policy TrustTunnel permit global OpkgTun0' 2>/dev/null
         log_info "ip policy TrustTunnel created"
         changed=true
     fi
 
     if $changed; then
-        ndmc -c 'system configuration save'
+        ndmc -c 'system configuration save' 2>/dev/null
         log_info "ndmc configuration saved"
         # Wait for WAN hooks (which sleep 5s) to see the flag before removing it
         sleep 10
