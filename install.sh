@@ -149,6 +149,10 @@ if [ "$TT_MODE" = "tun" ]; then
     echo "   change_system_dns = false"
     echo ""
     echo "   Секции [listener.socks] в файле быть не должно."
+else
+    echo ""
+    echo "   В конфигурации клиента должна быть секция [listener.socks]."
+    echo "   Секции [listener.tun] в файле быть не должно."
 fi
 echo "3. Запустите сервис: /opt/etc/init.d/S99trusttunnel start"
 echo ""
