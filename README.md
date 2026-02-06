@@ -205,8 +205,6 @@ ndmc -c 'interface OpkgTun0 security-level public'
 ndmc -c 'interface OpkgTun0 up'
 ```
 
-Замените `<TUN_IP>` на IP-адрес, назначенный VPN-сервером.
-
 ## Структура файлов
 
 ```
