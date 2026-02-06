@@ -32,18 +32,11 @@ esac
 echo "Выбран режим: $TT_MODE"
 echo ""
 
-TUN_IP=""
+TUN_IP="172.16.219.2"
 if [ "$TT_MODE" = "tun" ]; then
     if ! command -v ip >/dev/null 2>&1; then
         echo "Error: команда 'ip' не найдена. Установите пакет ip-full:"
         echo "  opkg update && opkg install ip-full"
-        exit 1
-    fi
-
-    printf "Введите IP-адрес TUN-интерфейса (назначенный VPN-сервером, например 10.0.0.2): "
-    read TUN_IP < /dev/tty
-    if [ -z "$TUN_IP" ]; then
-        echo "Error: IP-адрес не может быть пустым."
         exit 1
     fi
     echo "TUN IP: $TUN_IP"
