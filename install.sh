@@ -22,7 +22,7 @@ ask_yes_no() {
 # === Mode selection ===
 echo "Выберите режим работы TrustTunnel:"
 echo "  1) SOCKS5 — проксирование через интерфейс Proxy5 (по умолчанию)"
-echo "  2) TUN    — туннель через интерфейс OpkgTun0"
+echo "  2) TUN    — туннель через интерфейс OpkgTun0 (только для прошивки 5.x)"
 printf "Режим [1]: "
 read mode_choice < /dev/tty
 case "$mode_choice" in
