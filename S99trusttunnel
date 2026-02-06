@@ -255,35 +255,35 @@ reload() {
 }
 
 status() {
-    log_info "Mode: $TT_MODE"
+    echo "Mode: $TT_MODE"
 
     if is_running; then
-        log_info "$DESC is running (PID: $(get_pid))"
+        echo "$DESC is running (PID: $(get_pid))"
 
         if [ -f "$WATCHDOG_PID_FILE" ]; then
             wpid=$(cat "$WATCHDOG_PID_FILE" 2>/dev/null)
             if [ -n "$wpid" ] && kill -0 "$wpid" 2>/dev/null; then
-                log_info "Watchdog is running (PID: $wpid)"
+                echo "Watchdog is running (PID: $wpid)"
             else
-                log_info "Watchdog is NOT running"
+                echo "Watchdog is NOT running"
             fi
         else
-            log_info "Watchdog is NOT running"
+            echo "Watchdog is NOT running"
         fi
 
         if [ "$TT_MODE" = "tun" ]; then
             if ip link show opkgtun0 >/dev/null 2>&1; then
-                log_info "TUN interface: opkgtun0 is UP"
+                echo "TUN interface: opkgtun0 is UP"
             elif ip link show tun0 >/dev/null 2>&1; then
-                log_info "TUN interface: tun0 exists (not yet renamed)"
+                echo "TUN interface: tun0 exists (not yet renamed)"
             else
-                log_info "TUN interface: not found"
+                echo "TUN interface: not found"
             fi
         fi
 
         return 0
     else
-        log_info "$DESC is not running"
+        echo "$DESC is not running"
         return 1
     fi
 }
