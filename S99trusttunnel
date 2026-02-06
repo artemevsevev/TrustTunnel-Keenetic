@@ -53,6 +53,11 @@ wait_and_rename_tun() {
     elapsed=0
     while [ $elapsed -lt 30 ]; do
         if ip link show tun0 >/dev/null 2>&1; then
+            if ip link show opkgtun0 >/dev/null 2>&1; then
+                log_info "Stale opkgtun0 found, removing before rename..."
+                ip link set opkgtun0 down 2>/dev/null
+                ip link delete opkgtun0 2>/dev/null
+            fi
             log_info "tun0 detected, renaming to opkgtun0..."
             ip link set tun0 down 2>/dev/null
             ip link set tun0 name opkgtun0 2>/dev/null
@@ -93,7 +98,12 @@ fix_unrenamed_tun() {
         return 0
     fi
 
-    if ip link show tun0 >/dev/null 2>&1 && ! ip link show opkgtun0 >/dev/null 2>&1; then
+    if ip link show tun0 >/dev/null 2>&1; then
+        if ip link show opkgtun0 >/dev/null 2>&1; then
+            log_info "Both tun0 and opkgtun0 exist, removing stale opkgtun0..."
+            ip link set opkgtun0 down 2>/dev/null
+            ip link delete opkgtun0 2>/dev/null
+        fi
         log_info "Detected unrenamed tun0, renaming to opkgtun0..."
         ip link set tun0 down 2>/dev/null
         ip link set tun0 name opkgtun0 2>/dev/null
