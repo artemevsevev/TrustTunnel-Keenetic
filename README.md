@@ -9,7 +9,7 @@
    opkg update
    opkg install curl
    ```
-3. Установить сервер TrustTunnel на VPS
+3. Установить и настроить сервер TrustTunnel на VPS (см. ниже)
 
 ### 1. Установка сервера на VPS
 
@@ -91,15 +91,24 @@ cd /opt/trusttunnel/
 
 Это создаст файл конфигурации `config.toml`, который нужно передать на роутер.
 
-### 2. Установка клиента
+### 2. Установка клиента на Keenetic
 
-Скачайте клиент на роутере:
+Выполните одну команду на роутере:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/TrustTunnel/TrustTunnelClient/refs/heads/master/scripts/install.sh | sh -s -
+curl -fsSL https://raw.githubusercontent.com/artemevsevev/TrustTunnel-Keenetic/main/install.sh | sh
 ```
 
-Поддерживаемые архитектуры: x86_64, aarch64, armv7, mips, mipsel.
+или с wget:
+
+```bash
+wget -qO- https://raw.githubusercontent.com/artemevsevev/TrustTunnel-Keenetic/main/install.sh | sh
+```
+
+Скрипт установки выполнит следующее:
+1. Скачает и установит скрипты автозапуска (`S99trusttunnel`, `010-trusttunnel.sh`)
+2. Предложит создать интерфейс Proxy5 и политику маршрутизации TrustTunnel в Keenetic
+3. Предложит установить/обновить клиент TrustTunnel (поддерживаемые архитектуры: x86_64, aarch64, armv7, mips, mipsel)
 
 #### Настройка клиента
 
@@ -133,27 +142,14 @@ password = ""
 ./trusttunnel_client -c trusttunnel_client.toml
 ```
 
----
-
-## Быстрая установка скрипта автозапуска на Keenetic
-
-Выполните одну команду на роутере:
-
+После настройки запустите сервис:
 ```bash
-curl -fsSL https://raw.githubusercontent.com/artemevsevev/TrustTunnel-Keenetic/main/install.sh | sh
+/opt/etc/init.d/S99trusttunnel start
 ```
 
-или с wget:
+### Настройка прокси вручную в веб-интерфейсе Keenetic
 
-```bash
-wget -qO- https://raw.githubusercontent.com/artemevsevev/TrustTunnel-Keenetic/main/install.sh | sh
-```
-
-После установки скриптов запустите сервис: `/opt/etc/init.d/S99trusttunnel start`
-
-### Настройка прокси в веб-интерфейсе Keenetic
-
-После запуска клиента необходимо добавить прокси-соединение в веб-интерфейсе роутера:
+Если при установке вы пропустили автоматическое создание интерфейса и политики, добавьте прокси-соединение вручную:
 
 1. Откройте веб-интерфейс Keenetic
 2. Перейдите в раздел **Другие подключения** -> **Прокси-соединения**
