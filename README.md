@@ -106,9 +106,21 @@ wget -qO- https://raw.githubusercontent.com/artemevsevev/TrustTunnel-Keenetic/ma
 ```
 
 Скрипт установки выполнит следующее:
-1. Скачает и установит скрипты автозапуска (`S99trusttunnel`, `010-trusttunnel.sh`)
-2. Предложит создать интерфейс Proxy5 и политику маршрутизации TrustTunnel в Keenetic
-3. Предложит установить/обновить клиент TrustTunnel (поддерживаемые архитектуры: x86_64, aarch64, armv7, mips, mipsel)
+1. Предложит выбрать режим работы (SOCKS5 или TUN)
+2. Скачает и установит скрипты автозапуска (`S99trusttunnel`, `010-trusttunnel.sh`)
+3. Сохранит выбранный режим в `/opt/trusttunnel_client/mode.conf`
+4. Предложит создать интерфейс (Proxy5 для SOCKS5 или OpkgTun0 для TUN) и политику маршрутизации TrustTunnel в Keenetic
+5. Предложит установить/обновить клиент TrustTunnel (поддерживаемые архитектуры: x86_64, aarch64, armv7, mips, mipsel)
+
+### Сравнение режимов
+
+| | SOCKS5 (Proxy5) | TUN (OpkgTun0) |
+|---|---|---|
+| Интерфейс Keenetic | Proxy5 | OpkgTun0 |
+| Тип трафика | TCP через SOCKS5-прокси | Весь трафик (TCP/UDP/ICMP) через TUN |
+| Производительность | Ниже (userspace-прокси) | Выше (kernel TUN) |
+| Совместимость | Все версии Keenetic с Entware | Keenetic firmware v5+ с поддержкой OpkgTun |
+| Требования | — | Пакет `ip-full` в Entware, IP-адрес от VPN-сервера |
 
 #### Настройка клиента
 
@@ -120,6 +132,8 @@ cd /opt/trusttunnel_client/
 ```
 
 Подробная документация: https://github.com/TrustTunnel/TrustTunnel
+
+#### Конфигурация для режима SOCKS5
 
 В файле `trusttunnel_client.toml` должен быть настроен SOCKS-прокси listener:
 
@@ -137,6 +151,25 @@ password = ""
 
 Секции `[listener.tun]` в файле быть не должно.
 
+#### Конфигурация для режима TUN
+
+В файле `trusttunnel_client.toml` должен быть настроен TUN listener:
+
+```toml
+[listener]
+
+[listener.tun]
+# Пустой список — маршрутизацией управляет Keenetic через policy
+included_routes = []
+# DNS управляет Keenetic
+change_system_dns = false
+mtu_size = 1280
+```
+
+Секции `[listener.socks]` в файле быть не должно.
+
+> **Важно:** `included_routes = []` означает, что клиент не будет добавлять маршруты — маршрутизация полностью управляется через Keenetic policy. `change_system_dns = false` предотвращает изменение DNS-настроек системы.
+
 Проверить запуск:
 ```bash
 ./trusttunnel_client -c trusttunnel_client.toml
@@ -147,7 +180,9 @@ password = ""
 /opt/etc/init.d/S99trusttunnel start
 ```
 
-### Настройка прокси вручную в веб-интерфейсе Keenetic
+### Настройка вручную в веб-интерфейсе Keenetic
+
+#### Режим SOCKS5
 
 Если при установке вы пропустили автоматическое создание интерфейса и политики, добавьте прокси-соединение вручную:
 
@@ -155,6 +190,21 @@ password = ""
 2. Перейдите в раздел **Другие подключения** -> **Прокси-соединения**
 3. Добавьте новое SOCKS5 прокси-соединение с адресом `127.0.0.1` и портом `1080`
 4. Настройте маршрутизацию трафика через это соединение
+
+#### Режим TUN
+
+Интерфейс OpkgTun0 появится автоматически в веб-интерфейсе Keenetic после запуска клиента и переименования `tun0` в `opkgtun0`. Для ручной настройки через CLI:
+
+```bash
+ndmc -c 'interface OpkgTun0'
+ndmc -c 'interface OpkgTun0 description TrustTunnel'
+ndmc -c 'interface OpkgTun0 ip address <TUN_IP> 255.255.255.255'
+ndmc -c 'interface OpkgTun0 ip global auto'
+ndmc -c 'interface OpkgTun0 ip mtu 1280'
+ndmc -c 'interface OpkgTun0 ip tcp adjust-mss pmtu'
+ndmc -c 'interface OpkgTun0 security-level public'
+ndmc -c 'interface OpkgTun0 up'
+```
 
 ## Структура файлов
 
@@ -174,7 +224,8 @@ password = ""
 │       └── trusttunnel.log         # Лог работы
 └── trusttunnel_client/
     ├── trusttunnel_client          # Бинарник клиента
-    └── trusttunnel_client.toml     # Конфигурация
+    ├── trusttunnel_client.toml     # Конфигурация
+    └── mode.conf                   # Режим работы (socks5/tun)
 ```
 
 ## Ручная установка
@@ -245,7 +296,14 @@ tail -f /opt/var/log/trusttunnel.log
 ### Переподключение WAN
 - Keenetic вызывает скрипты из `/opt/etc/ndm/wan.d/` при поднятии WAN
 - Скрипт `010-trusttunnel.sh` инициирует перезапуск клиента
+- В режиме TUN: перед перезапуском опускаются интерфейсы `opkgtun0`/`tun0`
 - Watchdog подхватит и запустит клиент заново
+
+### Режим TUN (OpkgTun0)
+- TrustTunnel Client создаёт интерфейс `tun0`
+- Init-скрипт ожидает появления `tun0` (до 30 секунд) и переименовывает его в `opkgtun0`
+- Keenetic распознаёт `opkgtun0` как интерфейс `OpkgTun0` и применяет маршрутизацию/firewall
+- Watchdog проверяет и исправляет непереименованный `tun0` при каждом цикле
 
 ### Защита от дублей
 - PID-файл предотвращает запуск нескольких экземпляров
@@ -293,4 +351,39 @@ ls -la /opt/etc/ndm/wan.d/
 
 # Проверьте, что Keenetic поддерживает ndm хуки
 # (требуется установленный пакет opt в прошивке)
+```
+
+### TUN-интерфейс не появляется (режим TUN)
+```bash
+# Проверьте текущий режим
+cat /opt/trusttunnel_client/mode.conf
+
+# Проверьте наличие tun0 / opkgtun0
+ip link show tun0
+ip link show opkgtun0
+
+# Проверьте, что ip-full установлен
+opkg list-installed | grep ip-full
+
+# Попробуйте переименовать вручную
+ip link set tun0 down
+ip link set tun0 name opkgtun0
+ip link set opkgtun0 up
+
+# Проверьте лог на ошибки переименования
+logread | grep TrustTunnel | tail -20
+```
+
+### OpkgTun0 не виден в веб-интерфейсе Keenetic
+```bash
+# Проверьте, что интерфейс создан в Keenetic
+ndmc -c 'show interface' | grep OpkgTun0
+
+# Если нет — создайте вручную (замените IP)
+ndmc -c 'interface OpkgTun0'
+ndmc -c 'interface OpkgTun0 ip address 10.0.0.2 255.255.255.255'
+ndmc -c 'interface OpkgTun0 ip global auto'
+ndmc -c 'interface OpkgTun0 security-level public'
+ndmc -c 'interface OpkgTun0 up'
+ndmc -c 'system configuration save'
 ```
