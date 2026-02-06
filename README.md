@@ -163,6 +163,7 @@ password = ""
 included_routes = []
 # DNS управляет Keenetic
 change_system_dns = false
+mtu_size = 1280
 ```
 
 Секции `[listener.socks]` в файле быть не должно.
