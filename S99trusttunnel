@@ -15,6 +15,7 @@ LOG_FILE="/opt/var/log/trusttunnel.log"
 WATCHDOG_PID_FILE="/opt/var/run/trusttunnel_watchdog.pid"
 
 LOG_TAG="TrustTunnel"
+MAX_LOG_SIZE=524288  # 512KB
 
 # Load mode (defaults to socks5)
 TT_MODE="socks5"
@@ -33,6 +34,16 @@ log_error() {
     logger -p err -t "$LOG_TAG" "$1"
 }
 
+rotate_log() {
+    if [ -f "$LOG_FILE" ]; then
+        log_size=$(wc -c < "$LOG_FILE" 2>/dev/null || echo 0)
+        if [ "$log_size" -gt "$MAX_LOG_SIZE" ]; then
+            mv "$LOG_FILE" "${LOG_FILE}.old"
+            log_info "Log rotated (was ${log_size} bytes)"
+        fi
+    fi
+}
+
 check_prereq() {
     if [ ! -x "$CLIENT_BIN" ]; then
         log_error "$CLIENT_BIN not found or not executable"
@@ -44,6 +55,21 @@ check_prereq() {
     fi
 }
 
+remove_stale_opkgtun0() {
+    if ip link show opkgtun0 >/dev/null 2>&1; then
+        log_info "Stale opkgtun0 found, removing..."
+        ip link set opkgtun0 down 2>/dev/null
+        ip link delete opkgtun0 2>/dev/null
+    fi
+}
+
+rename_tun0_to_opkgtun0() {
+    log_info "Renaming tun0 to opkgtun0..."
+    ip link set tun0 down 2>/dev/null
+    ip link set tun0 name opkgtun0 2>/dev/null
+    ip link set opkgtun0 up 2>/dev/null
+}
+
 wait_and_rename_tun() {
     if [ "$TT_MODE" != "tun" ]; then
         return 0
@@ -53,15 +79,8 @@ wait_and_rename_tun() {
     elapsed=0
     while [ $elapsed -lt 30 ]; do
         if ip link show tun0 >/dev/null 2>&1; then
-            if ip link show opkgtun0 >/dev/null 2>&1; then
-                log_info "Stale opkgtun0 found, removing before rename..."
-                ip link set opkgtun0 down 2>/dev/null
-                ip link delete opkgtun0 2>/dev/null
-            fi
-            log_info "tun0 detected, renaming to opkgtun0..."
-            ip link set tun0 down 2>/dev/null
-            ip link set tun0 name opkgtun0 2>/dev/null
-            ip link set opkgtun0 up 2>/dev/null
+            remove_stale_opkgtun0
+            rename_tun0_to_opkgtun0
             if ip link show opkgtun0 >/dev/null 2>&1; then
                 log_info "tun0 renamed to opkgtun0 successfully"
                 return 0
@@ -99,15 +118,8 @@ fix_unrenamed_tun() {
     fi
 
     if ip link show tun0 >/dev/null 2>&1; then
-        if ip link show opkgtun0 >/dev/null 2>&1; then
-            log_info "Both tun0 and opkgtun0 exist, removing stale opkgtun0..."
-            ip link set opkgtun0 down 2>/dev/null
-            ip link delete opkgtun0 2>/dev/null
-        fi
-        log_info "Detected unrenamed tun0, renaming to opkgtun0..."
-        ip link set tun0 down 2>/dev/null
-        ip link set tun0 name opkgtun0 2>/dev/null
-        ip link set opkgtun0 up 2>/dev/null
+        remove_stale_opkgtun0
+        rename_tun0_to_opkgtun0
     fi
 }
 
@@ -135,16 +147,29 @@ is_running() {
 
 watchdog() {
     echo $$ > "$WATCHDOG_PID_FILE"
-
+    MAX_RETRIES=10
+    INITIAL_SLEEP=10
+    fail_count=0
+    trap 'rm -f "$WATCHDOG_PID_FILE"; exit 0' TERM INT
     while true; do
         if ! is_running; then
-            log_info "Client not running, starting..."
+            fail_count=$((fail_count + 1))
+            if [ "$fail_count" -gt "$MAX_RETRIES" ]; then
+                log_error "Client failed $MAX_RETRIES times, watchdog giving up"
+                rm -f "$WATCHDOG_PID_FILE"
+                exit 1
+            fi
+            log_info "Client not running (attempt $fail_count/$MAX_RETRIES), starting..."
             cleanup_tun
             start_client
+            sleep_time=$((INITIAL_SLEEP * fail_count))
+            [ "$sleep_time" -gt 300 ] && sleep_time=300
+            sleep "$sleep_time"
         else
+            fail_count=0
             fix_unrenamed_tun
+            sleep "$INITIAL_SLEEP"
         fi
-        sleep 10
     done
 }
 
@@ -155,6 +180,7 @@ start_client() {
     fi
 
     log_info "Starting $DESC..."
+    rotate_log
 
     $CLIENT_BIN $ARGS >> "$LOG_FILE" 2>&1 &
     pid=$!
@@ -184,7 +210,7 @@ stop_watchdog() {
         rm -f "$WATCHDOG_PID_FILE"
     fi
 
-    pkill -f "S99trusttunnel watchdog" 2>/dev/null
+    pkill -f "/opt/etc/init.d/S99trusttunnel watchdog" 2>/dev/null
 }
 
 start() {
@@ -228,11 +254,13 @@ stop() {
         fi
 
         rm -f "$PID_FILE"
-        cleanup_tun
         log_info "$DESC stopped"
     else
+        rm -f "$PID_FILE"
         log_info "$DESC is not running"
     fi
+
+    cleanup_tun
 }
 
 restart() {
@@ -243,6 +271,21 @@ restart() {
 
 reload() {
     log_info "Reloading $DESC..."
+
+    # Check if watchdog is alive; if not, do a full restart
+    watchdog_alive=false
+    if [ -f "$WATCHDOG_PID_FILE" ]; then
+        wpid=$(cat "$WATCHDOG_PID_FILE" 2>/dev/null)
+        if [ -n "$wpid" ] && kill -0 "$wpid" 2>/dev/null; then
+            watchdog_alive=true
+        fi
+    fi
+
+    if ! $watchdog_alive; then
+        log_info "Watchdog is not running, performing full restart instead of reload"
+        restart
+        return $?
+    fi
 
     pid=$(get_pid)
     if [ -n "$pid" ]; then
