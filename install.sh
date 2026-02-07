@@ -39,7 +39,7 @@ ask_yes_no() {
 # === Mode selection ===
 echo "Выберите режим работы TrustTunnel:"
 echo "  1) SOCKS5 — проксирование через интерфейс Proxy5 (по умолчанию)"
-echo "  2) TUN    — туннель через интерфейс OpkgTun0 (только для прошивки 5.x)"
+echo "  2) TUN    — туннель через интерфейс OpkgTun5 (только для прошивки 5.x)"
 printf "Режим [1]: "
 read mode_choice < /dev/tty
 case "$mode_choice" in
@@ -118,22 +118,22 @@ if ask_yes_no "Создать policy TrustTunnel и интерфейс TrustTunn
                 IFACE_NAME="Proxy5"
             else
                 # --- TUN Interface ---
-                if echo "$ndmc_iface_output" | grep -q '^OpkgTun0'; then
-                    echo "Интерфейс OpkgTun0 уже существует — пропускаю."
+                if echo "$ndmc_iface_output" | grep -q '^OpkgTun5'; then
+                    echo "Интерфейс OpkgTun5 уже существует — пропускаю."
                 else
-                    echo "Создаю интерфейс OpkgTun0..."
-                    ndmc -c 'interface OpkgTun0'
-                    ndmc -c 'interface OpkgTun0 description TrustTunnel'
-                    ndmc -c "interface OpkgTun0 ip address $TUN_IP 255.255.255.255"
-                    ndmc -c 'interface OpkgTun0 ip global auto'
-                    ndmc -c 'interface OpkgTun0 ip mtu 1280'
-                    ndmc -c 'interface OpkgTun0 ip tcp adjust-mss pmtu'
-                    ndmc -c 'interface OpkgTun0 security-level public'
-                    ndmc -c 'interface OpkgTun0 up'
-                    echo "Интерфейс OpkgTun0 создан."
+                    echo "Создаю интерфейс OpkgTun5..."
+                    ndmc -c 'interface OpkgTun5'
+                    ndmc -c 'interface OpkgTun5 description TrustTunnel'
+                    ndmc -c "interface OpkgTun5 ip address $TUN_IP 255.255.255.255"
+                    ndmc -c 'interface OpkgTun5 ip global auto'
+                    ndmc -c 'interface OpkgTun5 ip mtu 1280'
+                    ndmc -c 'interface OpkgTun5 ip tcp adjust-mss pmtu'
+                    ndmc -c 'interface OpkgTun5 security-level public'
+                    ndmc -c 'interface OpkgTun5 up'
+                    echo "Интерфейс OpkgTun5 создан."
                 fi
 
-                IFACE_NAME="OpkgTun0"
+                IFACE_NAME="OpkgTun5"
             fi
 
             # --- Policy ---
