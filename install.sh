@@ -38,9 +38,11 @@ ask_yes_no() {
 
 # === Read existing config ===
 EXISTING_TUN_IDX=""
+EXISTING_MODE=""
 if [ -f /opt/trusttunnel_client/mode.conf ]; then
     . /opt/trusttunnel_client/mode.conf
     EXISTING_TUN_IDX="${TUN_IDX:-0}"
+    EXISTING_MODE="${TT_MODE:-socks5}"
 fi
 
 # === Mode selection ===
@@ -162,13 +164,32 @@ if ask_yes_no "Создать policy TrustTunnel и интерфейс TrustTunn
             # --- Policy ---
             ndmc_policy_output=$(ndmc -c 'show ip policy' 2>&1) || ndmc_policy_output=""
             if [ -n "$ndmc_policy_output" ] && echo "$ndmc_policy_output" | grep -q '^TrustTunnel'; then
-                echo "Policy TrustTunnel уже существует — пропускаю."
+                echo "Policy TrustTunnel уже существует."
+                # Update permit rule if TUN index changed
+                if [ "$EXISTING_MODE" = "tun" ] && [ "$TT_MODE" = "tun" ] && [ "$EXISTING_TUN_IDX" != "$TUN_IDX" ]; then
+                    OLD_IFACE="OpkgTun${EXISTING_TUN_IDX}"
+                    echo "Обновляю policy TrustTunnel: ${OLD_IFACE} → ${IFACE_NAME}..."
+                    ndmc -c "no ip policy TrustTunnel permit global ${OLD_IFACE}" 2>/dev/null
+                    ndmc -c "ip policy TrustTunnel permit global ${IFACE_NAME}"
+                    echo "Policy обновлена."
+                fi
             else
                 echo "Создаю ip policy TrustTunnel..."
                 ndmc -c 'ip policy TrustTunnel'
                 ndmc -c 'ip policy TrustTunnel description TrustTunnel'
                 ndmc -c "ip policy TrustTunnel permit global $IFACE_NAME"
                 echo "Policy TrustTunnel создана."
+            fi
+
+            # Warn about old TUN interface left in Keenetic config
+            if [ "$EXISTING_MODE" = "tun" ] && [ "$TT_MODE" = "tun" ] && [ "$EXISTING_TUN_IDX" != "$TUN_IDX" ]; then
+                OLD_IFACE="OpkgTun${EXISTING_TUN_IDX}"
+                echo ""
+                echo "Внимание: старый интерфейс ${OLD_IFACE} остался в конфигурации Keenetic."
+                echo "Если он больше не нужен, удалите вручную:"
+                echo "  ndmc -c 'no interface ${OLD_IFACE}'"
+                echo "  ndmc -c 'system configuration save'"
+                echo ""
             fi
 
             ndmc -c 'system configuration save'
