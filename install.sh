@@ -122,6 +122,28 @@ if ask_yes_no "Создать policy TrustTunnel и интерфейс TrustTunn
         }
 
         if [ -n "$ndmc_iface_output" ]; then
+            # Determine old interface name for cleanup and policy migration
+            OLD_IFACE_NAME=""
+            if [ -n "$EXISTING_MODE" ]; then
+                if [ "$EXISTING_MODE" = "tun" ]; then
+                    OLD_IFACE_NAME="OpkgTun${EXISTING_TUN_IDX}"
+                else
+                    OLD_IFACE_NAME="Proxy5"
+                fi
+            fi
+
+            # Remove old TUN interface if index or mode changed
+            NDMC_IFACE="OpkgTun${TUN_IDX}"
+            if [ "$TT_MODE" = "socks5" ]; then
+                IFACE_NAME="Proxy5"
+            else
+                IFACE_NAME="${NDMC_IFACE}"
+            fi
+            if [ "$EXISTING_MODE" = "tun" ] && [ -n "$OLD_IFACE_NAME" ] && [ "$OLD_IFACE_NAME" != "$IFACE_NAME" ]; then
+                echo "Удаляю старый интерфейс ${OLD_IFACE_NAME}..."
+                ndmc -c "no interface ${OLD_IFACE_NAME}" || true
+            fi
+
             if [ "$TT_MODE" = "socks5" ]; then
                 # --- SOCKS5 Interface ---
                 if echo "$ndmc_iface_output" | grep -q '^Proxy5'; then
@@ -139,10 +161,8 @@ if ask_yes_no "Создать policy TrustTunnel и интерфейс TrustTunn
                     echo "Интерфейс Proxy5 создан."
                 fi
 
-                IFACE_NAME="Proxy5"
             else
                 # --- TUN Interface ---
-                NDMC_IFACE="OpkgTun${TUN_IDX}"
                 if echo "$ndmc_iface_output" | grep -q "^${NDMC_IFACE}"; then
                     echo "Интерфейс ${NDMC_IFACE} уже существует — пропускаю."
                 else
@@ -158,17 +178,6 @@ if ask_yes_no "Создать policy TrustTunnel и интерфейс TrustTunn
                     echo "Интерфейс ${NDMC_IFACE} создан."
                 fi
 
-                IFACE_NAME="${NDMC_IFACE}"
-            fi
-
-            # Determine old interface name for policy migration
-            OLD_IFACE_NAME=""
-            if [ -n "$EXISTING_MODE" ]; then
-                if [ "$EXISTING_MODE" = "tun" ]; then
-                    OLD_IFACE_NAME="OpkgTun${EXISTING_TUN_IDX}"
-                else
-                    OLD_IFACE_NAME="Proxy5"
-                fi
             fi
 
             # --- Policy ---
@@ -188,16 +197,6 @@ if ask_yes_no "Создать policy TrustTunnel и интерфейс TrustTunn
                 ndmc -c 'ip policy TrustTunnel description TrustTunnel'
                 ndmc -c "ip policy TrustTunnel permit global $IFACE_NAME"
                 echo "Policy TrustTunnel создана."
-            fi
-
-            # Warn about old TUN interface left in Keenetic config
-            if [ "$EXISTING_MODE" = "tun" ] && [ -n "$OLD_IFACE_NAME" ] && [ "$OLD_IFACE_NAME" != "$IFACE_NAME" ]; then
-                echo ""
-                echo "Внимание: старый интерфейс ${OLD_IFACE_NAME} остался в конфигурации Keenetic."
-                echo "Если он больше не нужен, удалите вручную:"
-                echo "  ndmc -c 'no interface ${OLD_IFACE_NAME}'"
-                echo "  ndmc -c 'system configuration save'"
-                echo ""
             fi
 
             ndmc -c 'system configuration save'
