@@ -109,14 +109,14 @@ wget -qO- https://raw.githubusercontent.com/artemevsevev/TrustTunnel-Keenetic/ma
 1. Предложит выбрать режим работы (SOCKS5 или TUN)
 2. Скачает и установит скрипты автозапуска (`S99trusttunnel`, `010-trusttunnel.sh`)
 3. Сохранит выбранный режим в `/opt/trusttunnel_client/mode.conf`
-4. Предложит создать интерфейс (Proxy5 для SOCKS5 или OpkgTun0 для TUN) и политику маршрутизации TrustTunnel в Keenetic
+4. Предложит создать интерфейс (Proxy5 для SOCKS5 или OpkgTun5 для TUN) и политику маршрутизации TrustTunnel в Keenetic
 5. Предложит установить/обновить клиент TrustTunnel (поддерживаемые архитектуры: x86_64, aarch64, armv7, mips, mipsel)
 
 ### Сравнение режимов
 
-| | SOCKS5 (Proxy5) | TUN (OpkgTun0) |
+| | SOCKS5 (Proxy5) | TUN (OpkgTun5) |
 |---|---|---|
-| Интерфейс Keenetic | Proxy5 | OpkgTun0 |
+| Интерфейс Keenetic | Proxy5 | OpkgTun5 |
 | Тип трафика | TCP через SOCKS5-прокси | Весь трафик (TCP/UDP/ICMP) через TUN |
 | Производительность | Ниже (userspace-прокси) | Выше (kernel TUN) |
 | Совместимость | Все версии Keenetic с Entware | Keenetic firmware v5+ с поддержкой OpkgTun |
@@ -193,17 +193,17 @@ mtu_size = 1280
 
 #### Режим TUN
 
-Интерфейс OpkgTun0 появится автоматически в веб-интерфейсе Keenetic после запуска клиента и переименования `tun0` в `opkgtun0`. Для ручной настройки через CLI:
+Интерфейс OpkgTun5 появится автоматически в веб-интерфейсе Keenetic после запуска клиента и переименования `tun0` в `OpkgTun5`. Для ручной настройки через CLI:
 
 ```bash
-ndmc -c 'interface OpkgTun0'
-ndmc -c 'interface OpkgTun0 description TrustTunnel'
-ndmc -c 'interface OpkgTun0 ip address <TUN_IP> 255.255.255.255'
-ndmc -c 'interface OpkgTun0 ip global auto'
-ndmc -c 'interface OpkgTun0 ip mtu 1280'
-ndmc -c 'interface OpkgTun0 ip tcp adjust-mss pmtu'
-ndmc -c 'interface OpkgTun0 security-level public'
-ndmc -c 'interface OpkgTun0 up'
+ndmc -c 'interface OpkgTun5'
+ndmc -c 'interface OpkgTun5 description TrustTunnel'
+ndmc -c 'interface OpkgTun5 ip address <TUN_IP> 255.255.255.255'
+ndmc -c 'interface OpkgTun5 ip global auto'
+ndmc -c 'interface OpkgTun5 ip mtu 1280'
+ndmc -c 'interface OpkgTun5 ip tcp adjust-mss pmtu'
+ndmc -c 'interface OpkgTun5 security-level public'
+ndmc -c 'interface OpkgTun5 up'
 ```
 
 ## Структура файлов
@@ -296,13 +296,13 @@ tail -f /opt/var/log/trusttunnel.log
 ### Переподключение WAN
 - Keenetic вызывает скрипты из `/opt/etc/ndm/wan.d/` при поднятии WAN
 - Скрипт `010-trusttunnel.sh` инициирует перезапуск клиента
-- В режиме TUN: перед перезапуском опускаются интерфейсы `opkgtun0`/`tun0`
+- В режиме TUN: перед перезапуском опускаются интерфейсы `OpkgTun5`/`tun0`
 - Watchdog подхватит и запустит клиент заново
 
-### Режим TUN (OpkgTun0)
+### Режим TUN (OpkgTun5)
 - TrustTunnel Client создаёт интерфейс `tun0`
-- Init-скрипт ожидает появления `tun0` (до 30 секунд) и переименовывает его в `opkgtun0`
-- Keenetic распознаёт `opkgtun0` как интерфейс `OpkgTun0` и применяет маршрутизацию/firewall
+- Init-скрипт ожидает появления `tun0` (до 30 секунд) и переименовывает его в `OpkgTun5`
+- Keenetic распознаёт `OpkgTun5` как интерфейс `OpkgTun5` и применяет маршрутизацию/firewall
 - Watchdog проверяет и исправляет непереименованный `tun0` при каждом цикле
 
 ### Защита от дублей
@@ -358,32 +358,32 @@ ls -la /opt/etc/ndm/wan.d/
 # Проверьте текущий режим
 cat /opt/trusttunnel_client/mode.conf
 
-# Проверьте наличие tun0 / opkgtun0
+# Проверьте наличие tun0 / OpkgTun5
 ip link show tun0
-ip link show opkgtun0
+ip link show OpkgTun5
 
 # Проверьте, что ip-full установлен
 opkg list-installed | grep ip-full
 
 # Попробуйте переименовать вручную
 ip link set tun0 down
-ip link set tun0 name opkgtun0
-ip link set opkgtun0 up
+ip link set tun0 name OpkgTun5
+ip link set OpkgTun5 up
 
 # Проверьте лог на ошибки переименования
 logread | grep TrustTunnel | tail -20
 ```
 
-### OpkgTun0 не виден в веб-интерфейсе Keenetic
+### OpkgTun5 не виден в веб-интерфейсе Keenetic
 ```bash
 # Проверьте, что интерфейс создан в Keenetic
-ndmc -c 'show interface' | grep OpkgTun0
+ndmc -c 'show interface' | grep OpkgTun5
 
 # Если нет — создайте вручную (замените IP)
-ndmc -c 'interface OpkgTun0'
-ndmc -c 'interface OpkgTun0 ip address 10.0.0.2 255.255.255.255'
-ndmc -c 'interface OpkgTun0 ip global auto'
-ndmc -c 'interface OpkgTun0 security-level public'
-ndmc -c 'interface OpkgTun0 up'
+ndmc -c 'interface OpkgTun5'
+ndmc -c 'interface OpkgTun5 ip address 10.0.0.2 255.255.255.255'
+ndmc -c 'interface OpkgTun5 ip global auto'
+ndmc -c 'interface OpkgTun5 security-level public'
+ndmc -c 'interface OpkgTun5 up'
 ndmc -c 'system configuration save'
 ```
