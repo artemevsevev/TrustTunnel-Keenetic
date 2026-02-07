@@ -9,13 +9,16 @@ if [ -f "$MODE_CONF" ]; then
     . "$MODE_CONF"
 fi
 
+TUN_IDX="${TUN_IDX:-0}"
+OPKG_IFACE="opkgtun${TUN_IDX}"
+
 sleep 5
 
 logger -t "$LOG_TAG" "WAN interface up, checking TrustTunnel..."
 
 if [ "$TT_MODE" = "tun" ]; then
     logger -t "$LOG_TAG" "TUN mode: bringing down tunnel interfaces before reload..."
-    ip link set opkgtun0 down 2>/dev/null
+    ip link set "$OPKG_IFACE" down 2>/dev/null
     ip link set tun0 down 2>/dev/null
 fi
 

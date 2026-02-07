@@ -9,7 +9,7 @@ cleanup_on_error() {
     echo "Для очистки вручную удалите:"
     echo "  rm -f /opt/etc/init.d/S99trusttunnel"
     echo "  rm -f /opt/etc/ndm/wan.d/010-trusttunnel.sh"
-    echo "  rm -rf /opt/trusttunnel_client"
+    echo "  rm -f /opt/trusttunnel_client/mode.conf"
 }
 trap cleanup_on_error ERR
 
@@ -36,10 +36,17 @@ ask_yes_no() {
     [ "$answer" = "y" ] || [ "$answer" = "Y" ]
 }
 
+# === Read existing config ===
+EXISTING_TUN_IDX=""
+if [ -f /opt/trusttunnel_client/mode.conf ]; then
+    . /opt/trusttunnel_client/mode.conf
+    EXISTING_TUN_IDX="${TUN_IDX:-0}"
+fi
+
 # === Mode selection ===
 echo "Выберите режим работы TrustTunnel:"
 echo "  1) SOCKS5 — проксирование через интерфейс Proxy5 (по умолчанию)"
-echo "  2) TUN    — туннель через интерфейс OpkgTun0 (только для прошивки 5.x)"
+echo "  2) TUN    — туннель через интерфейс OpkgTun (только для прошивки 5.x)"
 printf "Режим [1]: "
 read mode_choice < /dev/tty
 case "$mode_choice" in
@@ -58,6 +65,20 @@ if [ "$TT_MODE" = "tun" ]; then
     fi
     echo "TUN IP: $TUN_IP"
     echo ""
+
+    default_idx="${EXISTING_TUN_IDX:-0}"
+    printf "Индекс TUN-интерфейса OpkgTun (по умолчанию %s): " "$default_idx"
+    read tun_idx_input < /dev/tty
+    TUN_IDX="${tun_idx_input:-$default_idx}"
+    case "$TUN_IDX" in
+        ''|*[!0-9]*)
+            echo "Ошибка: индекс должен быть неотрицательным числом."
+            exit 1 ;;
+    esac
+    echo "Интерфейс: OpkgTun${TUN_IDX} (opkgtun${TUN_IDX})"
+    echo ""
+else
+    TUN_IDX="0"
 fi
 
 echo "Создаю директории..."
@@ -81,6 +102,7 @@ cat > /opt/trusttunnel_client/mode.conf <<MEOF
 # TrustTunnel mode: socks5 or tun
 TT_MODE="$TT_MODE"
 TUN_IP="$TUN_IP"
+TUN_IDX="$TUN_IDX"
 MEOF
 echo "mode.conf сохранён (TT_MODE=$TT_MODE)."
 
@@ -118,22 +140,23 @@ if ask_yes_no "Создать policy TrustTunnel и интерфейс TrustTunn
                 IFACE_NAME="Proxy5"
             else
                 # --- TUN Interface ---
-                if echo "$ndmc_iface_output" | grep -q '^OpkgTun0'; then
-                    echo "Интерфейс OpkgTun0 уже существует — пропускаю."
+                NDMC_IFACE="OpkgTun${TUN_IDX}"
+                if echo "$ndmc_iface_output" | grep -q "^${NDMC_IFACE}"; then
+                    echo "Интерфейс ${NDMC_IFACE} уже существует — пропускаю."
                 else
-                    echo "Создаю интерфейс OpkgTun0..."
-                    ndmc -c 'interface OpkgTun0'
-                    ndmc -c 'interface OpkgTun0 description TrustTunnel'
-                    ndmc -c "interface OpkgTun0 ip address $TUN_IP 255.255.255.255"
-                    ndmc -c 'interface OpkgTun0 ip global auto'
-                    ndmc -c 'interface OpkgTun0 ip mtu 1280'
-                    ndmc -c 'interface OpkgTun0 ip tcp adjust-mss pmtu'
-                    ndmc -c 'interface OpkgTun0 security-level public'
-                    ndmc -c 'interface OpkgTun0 up'
-                    echo "Интерфейс OpkgTun0 создан."
+                    echo "Создаю интерфейс ${NDMC_IFACE}..."
+                    ndmc -c "interface ${NDMC_IFACE}"
+                    ndmc -c "interface ${NDMC_IFACE} description TrustTunnel"
+                    ndmc -c "interface ${NDMC_IFACE} ip global auto"
+                    ndmc -c "interface ${NDMC_IFACE} ip address $TUN_IP 255.255.255.255"
+                    ndmc -c "interface ${NDMC_IFACE} ip mtu 1280"
+                    ndmc -c "interface ${NDMC_IFACE} ip tcp adjust-mss pmtu"
+                    ndmc -c "interface ${NDMC_IFACE} security-level public"
+                    ndmc -c "interface ${NDMC_IFACE} up"
+                    echo "Интерфейс ${NDMC_IFACE} создан."
                 fi
 
-                IFACE_NAME="OpkgTun0"
+                IFACE_NAME="${NDMC_IFACE}"
             fi
 
             # --- Policy ---
