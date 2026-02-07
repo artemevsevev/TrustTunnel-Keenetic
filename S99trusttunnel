@@ -55,19 +55,19 @@ check_prereq() {
     fi
 }
 
-remove_stale_OpkgTun5() {
-    if ip link show OpkgTun5 >/dev/null 2>&1; then
-        log_info "Stale OpkgTun5 found, removing..."
-        ip link set OpkgTun5 down 2>/dev/null
-        ip link delete OpkgTun5 2>/dev/null
+remove_stale_opkgtun5() {
+    if ip link show opkgtun5 >/dev/null 2>&1; then
+        log_info "Stale opkgTun5 found, removing..."
+        ip link set opkgTun5 down 2>/dev/null
+        ip link delete opkgTun5 2>/dev/null
     fi
 }
 
-rename_tun0_to_OpkgTun5() {
-    log_info "Renaming tun0 to OpkgTun5..."
+rename_tun0_to_opkgTun5() {
+    log_info "Renaming tun0 to opkgTun5..."
     ip link set tun0 down 2>/dev/null
-    ip link set tun0 name OpkgTun5 2>/dev/null
-    ip link set OpkgTun5 up 2>/dev/null
+    ip link set tun0 name opkgTun5 2>/dev/null
+    ip link set opkgtun5 up 2>/dev/null
 }
 
 wait_and_rename_tun() {
@@ -79,13 +79,13 @@ wait_and_rename_tun() {
     elapsed=0
     while [ $elapsed -lt 30 ]; do
         if ip link show tun0 >/dev/null 2>&1; then
-            remove_stale_OpkgTun5
-            rename_tun0_to_OpkgTun5
-            if ip link show OpkgTun5 >/dev/null 2>&1; then
-                log_info "tun0 renamed to OpkgTun5 successfully"
+            remove_stale_opkgtun5
+            rename_tun0_to_opkgtun5
+            if ip link show opkgtun5 >/dev/null 2>&1; then
+                log_info "tun0 renamed to opkgtun5 successfully"
                 return 0
             else
-                log_error "Failed to rename tun0 to OpkgTun5"
+                log_error "Failed to rename tun0 to opkgtun5"
                 return 1
             fi
         fi
@@ -102,9 +102,9 @@ cleanup_tun() {
         return 0
     fi
 
-    if ip link show OpkgTun5 >/dev/null 2>&1; then
-        ip link set OpkgTun5 down 2>/dev/null
-        log_info "OpkgTun5 brought down"
+    if ip link show opkgtun5 >/dev/null 2>&1; then
+        ip link set opkgtun5 down 2>/dev/null
+        log_info "opkgtun5 brought down"
     fi
     if ip link show tun0 >/dev/null 2>&1; then
         ip link set tun0 down 2>/dev/null
@@ -118,8 +118,8 @@ fix_unrenamed_tun() {
     fi
 
     if ip link show tun0 >/dev/null 2>&1; then
-        remove_stale_OpkgTun5
-        rename_tun0_to_OpkgTun5
+        remove_stale_opkgtun5
+        rename_tun0_to_opkgtun5
     fi
 }
 
@@ -315,8 +315,8 @@ status() {
         fi
 
         if [ "$TT_MODE" = "tun" ]; then
-            if ip link show OpkgTun5 >/dev/null 2>&1; then
-                echo "TUN interface: OpkgTun5 is UP"
+            if ip link show opkgtun5 >/dev/null 2>&1; then
+                echo "TUN interface: opkgtun5 is UP"
             elif ip link show tun0 >/dev/null 2>&1; then
                 echo "TUN interface: tun0 exists (not yet renamed)"
             else
