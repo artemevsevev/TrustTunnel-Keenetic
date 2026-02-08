@@ -13,9 +13,45 @@ cleanup_on_error() {
 }
 trap cleanup_on_error ERR
 
-REPO_URL="https://raw.githubusercontent.com/artemevsevev/TrustTunnel-Keenetic/main"
+GITHUB_REPO="artemevsevev/TrustTunnel-Keenetic"
+RAW_BASE="https://raw.githubusercontent.com/${GITHUB_REPO}"
+FALLBACK_REF="main"
 
-echo "=== Установщик TrustTunnel для Keenetic ==="
+# --- Определение версии ---
+RELEASE_TAG=""
+
+# Поддержка флага --version <tag>
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --version)
+            shift
+            RELEASE_TAG="$1"
+            shift
+            ;;
+        *)
+            shift
+            ;;
+    esac
+done
+
+if [ -n "$RELEASE_TAG" ]; then
+    echo "Указана версия: ${RELEASE_TAG}"
+else
+    # Автоопределение последнего релиза через GitHub API
+    API_RESPONSE=$(curl -fsSL --connect-timeout 10 --max-time 15 \
+        "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" 2>/dev/null) || API_RESPONSE=""
+    RELEASE_TAG=$(echo "$API_RESPONSE" | grep '"tag_name"' | \
+        sed 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
+fi
+
+if [ -n "$RELEASE_TAG" ]; then
+    REPO_URL="${RAW_BASE}/${RELEASE_TAG}"
+    echo "=== Установщик TrustTunnel для Keenetic (${RELEASE_TAG}) ==="
+else
+    echo "Внимание: не удалось определить последний релиз. Используется ветка ${FALLBACK_REF}."
+    REPO_URL="${RAW_BASE}/${FALLBACK_REF}"
+    echo "=== Установщик TrustTunnel для Keenetic (${FALLBACK_REF}) ==="
+fi
 echo ""
 
 if [ ! -d "/opt" ]; then
