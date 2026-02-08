@@ -59,6 +59,7 @@ echo "Выбран режим: $TT_MODE"
 echo ""
 
 TUN_IP="172.16.219.2"
+TUN_IPV6="fd01::2"
 if [ "$TT_MODE" = "tun" ]; then
     if ! command -v ip >/dev/null 2>&1; then
         echo "Ошибка: команда 'ip' не найдена. Установите пакет ip-full:"
@@ -66,6 +67,7 @@ if [ "$TT_MODE" = "tun" ]; then
         exit 1
     fi
     echo "TUN IP: $TUN_IP"
+    echo "TUN IPv6: $TUN_IPV6"
     echo ""
 
     default_idx="${EXISTING_TUN_IDX:-0}"
@@ -104,6 +106,7 @@ cat > /opt/trusttunnel_client/mode.conf <<MEOF
 # TrustTunnel mode: socks5 or tun
 TT_MODE="$TT_MODE"
 TUN_IP="$TUN_IP"
+TUN_IPV6="$TUN_IPV6"
 TUN_IDX="$TUN_IDX"
 
 # Health check settings (uncomment to customize)
@@ -179,6 +182,7 @@ if ask_yes_no "Создать policy TrustTunnel и интерфейс TrustTunn
                     ndmc -c "interface ${NDMC_IFACE} description TrustTunnel"
                     ndmc -c "interface ${NDMC_IFACE} ip global auto"
                     ndmc -c "interface ${NDMC_IFACE} ip address $TUN_IP 255.255.255.255"
+                    ndmc -c "interface ${NDMC_IFACE} ipv6 address $TUN_IPV6"
                     ndmc -c "interface ${NDMC_IFACE} ip mtu 1280"
                     ndmc -c "interface ${NDMC_IFACE} ip tcp adjust-mss pmtu"
                     ndmc -c "interface ${NDMC_IFACE} security-level public"
