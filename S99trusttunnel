@@ -13,6 +13,7 @@ MODE_CONF="/opt/trusttunnel_client/mode.conf"
 PID_FILE="/opt/var/run/trusttunnel.pid"
 LOG_FILE="/opt/var/log/trusttunnel.log"
 WATCHDOG_PID_FILE="/opt/var/run/trusttunnel_watchdog.pid"
+HC_STATE_FILE="/opt/var/run/trusttunnel_hc_state"
 
 LOG_TAG="TrustTunnel"
 MAX_LOG_SIZE=524288  # 512KB
@@ -26,6 +27,16 @@ fi
 
 TUN_IDX="${TUN_IDX:-0}"
 OPKG_IFACE="opkgtun${TUN_IDX}"
+
+# Health check defaults (overridable via mode.conf)
+HC_ENABLED="${HC_ENABLED:-yes}"
+HC_INTERVAL="${HC_INTERVAL:-30}"
+HC_FAIL_THRESHOLD="${HC_FAIL_THRESHOLD:-3}"
+HC_GRACE_PERIOD="${HC_GRACE_PERIOD:-60}"
+HC_TARGET_HOST="${HC_TARGET_HOST:-8.8.8.8}"
+HC_TARGET_URL="${HC_TARGET_URL:-http://connectivitycheck.gstatic.com/generate_204}"
+HC_PING_TIMEOUT="${HC_PING_TIMEOUT:-3}"
+HC_CURL_TIMEOUT="${HC_CURL_TIMEOUT:-5}"
 
 [ "$ENABLED" != "yes" ] && exit 0
 
@@ -126,6 +137,20 @@ fix_unrenamed_tun() {
     fi
 }
 
+check_connectivity() {
+    if [ "$TT_MODE" = "tun" ]; then
+        if ! ip link show "$OPKG_IFACE" >/dev/null 2>&1; then
+            return 1
+        fi
+        ping -c 1 -W "$HC_PING_TIMEOUT" -I "$OPKG_IFACE" "$HC_TARGET_HOST" >/dev/null 2>&1
+    else
+        curl --socks5 127.0.0.1:1080 \
+             --connect-timeout "$HC_CURL_TIMEOUT" \
+             -s -o /dev/null \
+             "$HC_TARGET_URL" >/dev/null 2>&1
+    fi
+}
+
 get_pid() {
     if [ -f "$PID_FILE" ]; then
         pid=$(cat "$PID_FILE" 2>/dev/null)
@@ -153,24 +178,70 @@ watchdog() {
     MAX_RETRIES=10
     INITIAL_SLEEP=10
     fail_count=0
-    trap 'rm -f "$WATCHDOG_PID_FILE"; exit 0' TERM INT
+    hc_fail_count=0
+    hc_tick=0
+    hc_first_ok=0
+    HC_TICKS=$((HC_INTERVAL / INITIAL_SLEEP))
+    [ "$HC_TICKS" -lt 1 ] && HC_TICKS=1
+    hc_grace=$((HC_GRACE_PERIOD / INITIAL_SLEEP))
+    trap 'rm -f "$WATCHDOG_PID_FILE" "$HC_STATE_FILE"; exit 0' TERM INT
     while true; do
         if ! is_running; then
             fail_count=$((fail_count + 1))
             if [ "$fail_count" -gt "$MAX_RETRIES" ]; then
                 log_error "Client failed $MAX_RETRIES times, watchdog giving up"
-                rm -f "$WATCHDOG_PID_FILE"
+                rm -f "$WATCHDOG_PID_FILE" "$HC_STATE_FILE"
                 exit 1
             fi
             log_info "Client not running (attempt $fail_count/$MAX_RETRIES), starting..."
             cleanup_tun
             start_client
+            # Reset HC state after (re)start
+            hc_fail_count=0
+            hc_tick=0
+            hc_first_ok=0
+            hc_grace=$((HC_GRACE_PERIOD / INITIAL_SLEEP))
+            rm -f "$HC_STATE_FILE"
             sleep_time=$((INITIAL_SLEEP * fail_count))
             [ "$sleep_time" -gt 300 ] && sleep_time=300
             sleep "$sleep_time"
         else
             fail_count=0
             fix_unrenamed_tun
+
+            if [ "$HC_ENABLED" = "yes" ]; then
+                if [ "$hc_grace" -gt 0 ]; then
+                    hc_grace=$((hc_grace - 1))
+                else
+                    hc_tick=$((hc_tick + 1))
+                    if [ "$hc_tick" -ge "$HC_TICKS" ]; then
+                        hc_tick=0
+                        if check_connectivity; then
+                            if [ "$hc_first_ok" -eq 0 ]; then
+                                log_info "Health check: connectivity OK"
+                                hc_first_ok=1
+                            fi
+                            hc_fail_count=0
+                            echo "ok ($(date '+%Y-%m-%d %H:%M:%S'))" > "$HC_STATE_FILE"
+                        else
+                            hc_fail_count=$((hc_fail_count + 1))
+                            log_info "Health check failed ($hc_fail_count/$HC_FAIL_THRESHOLD)"
+                            echo "fail $hc_fail_count/$HC_FAIL_THRESHOLD ($(date '+%Y-%m-%d %H:%M:%S'))" > "$HC_STATE_FILE"
+                            if [ "$hc_fail_count" -ge "$HC_FAIL_THRESHOLD" ]; then
+                                log_error "Health check: $HC_FAIL_THRESHOLD consecutive failures, restarting client"
+                                pid=$(get_pid)
+                                if [ -n "$pid" ]; then
+                                    kill "$pid" 2>/dev/null
+                                    rm -f "$PID_FILE"
+                                fi
+                                cleanup_tun
+                                # Next iteration will detect dead process and restart with backoff
+                            fi
+                        fi
+                    fi
+                fi
+            fi
+
             sleep "$INITIAL_SLEEP"
         fi
     done
@@ -264,6 +335,7 @@ stop() {
     fi
 
     cleanup_tun
+    rm -f "$HC_STATE_FILE"
 }
 
 restart() {
@@ -325,6 +397,16 @@ status() {
             else
                 echo "TUN interface: not found"
             fi
+        fi
+
+        if [ "$HC_ENABLED" = "yes" ]; then
+            if [ -f "$HC_STATE_FILE" ]; then
+                echo "Health check: $(cat "$HC_STATE_FILE" 2>/dev/null)"
+            else
+                echo "Health check: not yet run"
+            fi
+        else
+            echo "Health check: disabled"
         fi
 
         return 0

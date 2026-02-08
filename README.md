@@ -218,7 +218,8 @@ ndmc -c 'interface OpkgTunN up'
 ├── var/
 │   ├── run/
 │   │   ├── trusttunnel.pid         # PID клиента
-│   │   └── trusttunnel_watchdog.pid # PID watchdog
+│   │   ├── trusttunnel_watchdog.pid # PID watchdog
+│   │   └── trusttunnel_hc_state    # Состояние health check
 │   └── log/
 │       └── trusttunnel.log         # Лог работы
 └── trusttunnel_client/
@@ -290,13 +291,47 @@ tail -f /opt/var/log/trusttunnel.log
 ### Watchdog (перезапуск при падении)
 - После запуска клиента стартует фоновый процесс watchdog
 - Каждые 10 секунд проверяет, жив ли клиент
-- При падении автоматически перезапускает
+- При падении автоматически перезапускает с exponential backoff (до 10 попыток)
+- Дополнительно проверяет реальную связность через туннель (health check)
 
 ### Переподключение WAN
 - Keenetic вызывает скрипты из `/opt/etc/ndm/wan.d/` при поднятии WAN
 - Скрипт `010-trusttunnel.sh` инициирует перезапуск клиента
 - В режиме TUN: перед перезапуском опускаются интерфейсы `opkgtunN`/`tun0`
 - Watchdog подхватит и запустит клиент заново
+
+### Health check (мониторинг связности)
+
+Watchdog проверяет не только живость процесса, но и реальную связность через туннель:
+
+- **TUN-режим**: `ping` через интерфейс `opkgtunN` на целевой хост (по умолчанию `8.8.8.8`)
+- **SOCKS5-режим**: `curl` через прокси `127.0.0.1:1080` на HTTP connectivity-check endpoint
+
+Параметры по умолчанию:
+
+| Параметр | Значение | Описание |
+|---|---|---|
+| `HC_ENABLED` | `yes` | Включить/выключить health check |
+| `HC_INTERVAL` | `30` | Интервал проверки (секунды) |
+| `HC_FAIL_THRESHOLD` | `3` | Сбоев подряд до переподключения |
+| `HC_GRACE_PERIOD` | `60` | Пауза без проверок после (пере)старта |
+| `HC_TARGET_HOST` | `8.8.8.8` | TUN: куда пинговать |
+| `HC_TARGET_URL` | `http://connectivitycheck.gstatic.com/generate_204` | SOCKS5: что проверять |
+| `HC_PING_TIMEOUT` | `3` | TUN: таймаут ping (секунды) |
+| `HC_CURL_TIMEOUT` | `5` | SOCKS5: таймаут curl (секунды) |
+
+Для настройки раскомментируйте и измените параметры в `/opt/trusttunnel_client/mode.conf`.
+
+Для полного отключения health check:
+```
+HC_ENABLED="no"
+```
+
+Текущий статус health check отображается в выводе `status`:
+```bash
+/opt/etc/init.d/S99trusttunnel status
+# Health check: ok (2025-01-15 12:34:56)
+```
 
 ### Режим TUN (OpkgTunN)
 - TrustTunnel Client создаёт интерфейс `tun0`
@@ -371,6 +406,22 @@ ip link set opkgtunN up
 
 # Проверьте лог на ошибки переименования
 logread | grep TrustTunnel | tail -20
+```
+
+### Health check вызывает частые переподключения
+
+Если туннель работает, но health check регулярно фиксирует сбои и перезапускает клиент:
+
+```bash
+# Увеличьте порог сбоев и интервал проверки в /opt/trusttunnel_client/mode.conf:
+HC_FAIL_THRESHOLD=5
+HC_INTERVAL=60
+
+# Или полностью отключите health check:
+HC_ENABLED="no"
+
+# Перезапустите сервис после изменения настроек:
+/opt/etc/init.d/S99trusttunnel restart
 ```
 
 ### OpkgTunN не виден в веб-интерфейсе Keenetic
