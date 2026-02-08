@@ -60,7 +60,7 @@ find_free_index() {
     _fi_scan=$(ndmc -c 'show interface' 2>/dev/null) || return
     [ -n "$_fi_scan" ] || return
 
-    _fi_used=$(echo "$_fi_scan" | grep -E "${_fi_prefix}[0-9]+" | sed -E "s/.*${_fi_prefix}([0-9]+).*/\1/" | sort -nu)
+    _fi_used=$(echo "$_fi_scan" | grep -E "${_fi_prefix}[0-9]+" | sed -E "s/.*${_fi_prefix}([0-9]+).*/\1/" | sort -nu || true)
     [ -n "$_fi_used" ] || return
 
     echo "Обнаружены существующие ${_fi_prefix}-интерфейсы:"
@@ -277,7 +277,6 @@ echo "=== Установка завершена ==="
 echo ""
 echo "Дальнейшие шаги:"
 echo "1. Создайте файл конфигурации /opt/trusttunnel_client/trusttunnel_client.toml"
-echo "2. Сделайте бинарник исполняемым: chmod +x /opt/trusttunnel_client/trusttunnel_client"
 if [ "$TT_MODE" = "tun" ]; then
     echo ""
     echo "   В конфигурации клиента добавьте секцию [listener.tun]:"
@@ -291,7 +290,8 @@ else
     echo "   В конфигурации клиента должна быть секция [listener.socks]."
     echo "   Секции [listener.tun] в файле быть не должно."
 fi
-echo "3. Запустите сервис: /opt/etc/init.d/S99trusttunnel start"
+echo ""
+echo "2. Запустите сервис: /opt/etc/init.d/S99trusttunnel start"
 echo ""
 
 exit 0
