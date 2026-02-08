@@ -71,7 +71,39 @@ if [ "$TT_MODE" = "tun" ]; then
     echo "TUN IPv6: $TUN_IPV6"
     echo ""
 
-    default_idx="${EXISTING_TUN_IDX:-0}"
+    # Определение дефолтного индекса
+    if [ -n "$EXISTING_TUN_IDX" ]; then
+        # Переконфигурация — используем сохранённый индекс
+        default_idx="$EXISTING_TUN_IDX"
+    else
+        # Первая установка — ищем первый свободный
+        default_idx="0"
+    fi
+
+    if command -v ndmc >/dev/null 2>&1; then
+        ndmc_scan=$(ndmc -c 'show interface' 2>/dev/null) || ndmc_scan=""
+        if [ -n "$ndmc_scan" ]; then
+            used_indices=$(echo "$ndmc_scan" | grep -o '^OpkgTun[0-9]*' | sed 's/^OpkgTun//' | sort -n)
+            if [ -n "$used_indices" ]; then
+                echo "Обнаружены существующие TUN-интерфейсы:"
+                echo "$ndmc_scan" | grep '^OpkgTun[0-9]*' | while read -r line; do
+                    echo "  $line"
+                done
+                echo ""
+                # Если первая установка — ищем первый свободный индекс
+                if [ -z "$EXISTING_TUN_IDX" ]; then
+                    next_idx=0
+                    for idx in $used_indices; do
+                        if [ "$next_idx" -eq "$idx" ]; then
+                            next_idx=$((next_idx + 1))
+                        fi
+                    done
+                    default_idx="$next_idx"
+                fi
+            fi
+        fi
+    fi
+
     printf "Индекс TUN-интерфейса OpkgTun (по умолчанию %s): " "$default_idx"
     read tun_idx_input < /dev/tty
     TUN_IDX="${tun_idx_input:-$default_idx}"
@@ -180,7 +212,7 @@ if ask_yes_no "Создать policy TrustTunnel и интерфейс TrustTunn
                 else
                     echo "Создаю интерфейс ${NDMC_IFACE}..."
                     ndmc -c "interface ${NDMC_IFACE}"
-                    ndmc -c "interface ${NDMC_IFACE} description TrustTunnel"
+                    ndmc -c "interface ${NDMC_IFACE} description TrustTunnel-${TUN_IDX}"
                     ndmc -c "interface ${NDMC_IFACE} ip global auto"
                     ndmc -c "interface ${NDMC_IFACE} ip address $TUN_IP 255.255.255.255"
                     ndmc -c "interface ${NDMC_IFACE} ipv6 address $TUN_IPV6"
