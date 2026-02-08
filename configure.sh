@@ -226,7 +226,6 @@ if ask_yes_no "Создать интерфейс TrustTunnel?"; then
                     echo "Создаю интерфейс Proxy${PROXY_IDX}..."
                     ndmc -c "interface Proxy${PROXY_IDX}"
                     ndmc -c "interface Proxy${PROXY_IDX} description TrustTunnel-${PROXY_IDX}"
-                    ndmc -c "interface Proxy${PROXY_IDX} dyndns nobind"
                     ndmc -c "interface Proxy${PROXY_IDX} proxy protocol socks5"
                     ndmc -c "interface Proxy${PROXY_IDX} proxy upstream 127.0.0.1 1080"
                     ndmc -c "interface Proxy${PROXY_IDX} proxy connect via ISP"
