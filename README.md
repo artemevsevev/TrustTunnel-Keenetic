@@ -105,6 +105,11 @@ curl -fsSL https://raw.githubusercontent.com/artemevsevev/TrustTunnel-Keenetic/m
 > curl -fsSL https://raw.githubusercontent.com/artemevsevev/TrustTunnel-Keenetic/main/install.sh | sh -s -- --version v1.0.0
 > ```
 
+> Для установки из ветки `main` (последняя dev-версия):
+> ```bash
+> curl -fsSL https://raw.githubusercontent.com/artemevsevev/TrustTunnel-Keenetic/main/install.sh | sh -s -- --dev
+> ```
+
 Скрипт установки выполнит следующее:
 1. Предложит выбрать режим работы (SOCKS5 или TUN)
 2. Автоматически определит занятые интерфейсы (Proxy для SOCKS5, OpkgTun для TUN) и предложит первый свободный индекс

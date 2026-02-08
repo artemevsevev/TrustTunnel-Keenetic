@@ -12,6 +12,10 @@ RELEASE_TAG=""
 # Поддержка флага --version <tag>
 while [ $# -gt 0 ]; do
     case "$1" in
+        --dev)
+            RELEASE_TAG="main"
+            shift
+            ;;
         --version)
             shift
             RELEASE_TAG="$1"
