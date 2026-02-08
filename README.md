@@ -99,12 +99,6 @@ cd /opt/trusttunnel/
 curl -fsSL https://raw.githubusercontent.com/artemevsevev/TrustTunnel-Keenetic/main/install.sh | sh
 ```
 
-или с wget:
-
-```bash
-wget -qO- https://raw.githubusercontent.com/artemevsevev/TrustTunnel-Keenetic/main/install.sh | sh
-```
-
 > Скрипт автоматически определяет последнюю стабильную версию (GitHub Release).
 > Для установки конкретной версии:
 > ```bash
@@ -148,11 +142,8 @@ cd /opt/trusttunnel_client/
 [listener]
 
 [listener.socks]
-# IP address to bind the listener to
 address = "127.0.0.1:1080"
-# Username for authentication if desired
 username = ""
-# Password for authentication if desired
 password = ""
 ```
 
