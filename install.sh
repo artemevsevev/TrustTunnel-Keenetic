@@ -111,9 +111,7 @@ TUN_IDX="$TUN_IDX"
 # HC_INTERVAL=30
 # HC_FAIL_THRESHOLD=3
 # HC_GRACE_PERIOD=60
-# HC_TARGET_HOST="8.8.8.8"
 # HC_TARGET_URL="http://connectivitycheck.gstatic.com/generate_204"
-# HC_PING_TIMEOUT=3
 # HC_CURL_TIMEOUT=5
 MEOF
 echo "mode.conf сохранён (TT_MODE=$TT_MODE)."
