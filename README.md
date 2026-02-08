@@ -199,7 +199,7 @@ mtu_size = 1280
 
 ```bash
 ndmc -c 'interface OpkgTunN'
-ndmc -c 'interface OpkgTunN description TrustTunnel-N'
+ndmc -c 'interface OpkgTunN description "TrustTunnel TUN N"'
 ndmc -c 'interface OpkgTunN ip address <TUN_IP> 255.255.255.255'
 ndmc -c 'interface OpkgTunN ip global auto'
 ndmc -c 'interface OpkgTunN ip mtu 1280'
