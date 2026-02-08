@@ -39,16 +39,18 @@ ask_yes_no() {
 
 # === Read existing config ===
 EXISTING_TUN_IDX=""
+EXISTING_PROXY_IDX=""
 EXISTING_MODE=""
 if [ -f /opt/trusttunnel_client/mode.conf ]; then
     . /opt/trusttunnel_client/mode.conf
     EXISTING_TUN_IDX="${TUN_IDX:-0}"
+    EXISTING_PROXY_IDX="${PROXY_IDX:-0}"
     EXISTING_MODE="${TT_MODE:-socks5}"
 fi
 
 # === Mode selection ===
 echo "Выберите режим работы TrustTunnel:"
-echo "  1) SOCKS5 — проксирование через интерфейс Proxy5 (по умолчанию)"
+echo "  1) SOCKS5 — проксирование через интерфейс Proxy (по умолчанию)"
 echo "  2) TUN    — туннель через интерфейс OpkgTun (только для прошивки 5.x)"
 printf "Режим [1]: "
 read mode_choice < /dev/tty
@@ -114,8 +116,51 @@ if [ "$TT_MODE" = "tun" ]; then
     esac
     echo "Интерфейс: OpkgTun${TUN_IDX} (opkgtun${TUN_IDX})"
     echo ""
+    PROXY_IDX="0"
 else
     TUN_IDX="0"
+
+    # Определение дефолтного индекса Proxy
+    if [ -n "$EXISTING_PROXY_IDX" ]; then
+        default_proxy_idx="$EXISTING_PROXY_IDX"
+    else
+        default_proxy_idx="0"
+    fi
+
+    if command -v ndmc >/dev/null 2>&1; then
+        ndmc_proxy_scan=$(ndmc -c 'show interface' 2>/dev/null) || ndmc_proxy_scan=""
+        if [ -n "$ndmc_proxy_scan" ]; then
+            used_proxy_indices=$(echo "$ndmc_proxy_scan" | grep -o '^Proxy[0-9]*' | sed 's/^Proxy//' | sort -n)
+            if [ -n "$used_proxy_indices" ]; then
+                echo "Обнаружены существующие Proxy-интерфейсы:"
+                echo "$ndmc_proxy_scan" | grep '^Proxy[0-9]*' | while read -r line; do
+                    echo "  $line"
+                done
+                echo ""
+                # Если первая установка — ищем первый свободный индекс
+                if [ -z "$EXISTING_PROXY_IDX" ]; then
+                    next_proxy_idx=0
+                    for idx in $used_proxy_indices; do
+                        if [ "$next_proxy_idx" -eq "$idx" ]; then
+                            next_proxy_idx=$((next_proxy_idx + 1))
+                        fi
+                    done
+                    default_proxy_idx="$next_proxy_idx"
+                fi
+            fi
+        fi
+    fi
+
+    printf "Индекс интерфейса Proxy (по умолчанию %s): " "$default_proxy_idx"
+    read proxy_idx_input < /dev/tty
+    PROXY_IDX="${proxy_idx_input:-$default_proxy_idx}"
+    case "$PROXY_IDX" in
+        ''|*[!0-9]*)
+            echo "Ошибка: индекс должен быть неотрицательным числом."
+            exit 1 ;;
+    esac
+    echo "Интерфейс: Proxy${PROXY_IDX}"
+    echo ""
 fi
 
 echo "Создаю директории..."
@@ -141,6 +186,7 @@ TT_MODE="$TT_MODE"
 TUN_IP="$TUN_IP"
 TUN_IPV6="$TUN_IPV6"
 TUN_IDX="$TUN_IDX"
+PROXY_IDX="$PROXY_IDX"
 
 # Health check settings (uncomment to customize)
 # HC_ENABLED="yes"
@@ -172,37 +218,37 @@ if ask_yes_no "Создать policy TrustTunnel и интерфейс TrustTunn
                 if [ "$EXISTING_MODE" = "tun" ]; then
                     OLD_IFACE_NAME="OpkgTun${EXISTING_TUN_IDX}"
                 else
-                    OLD_IFACE_NAME="Proxy5"
+                    OLD_IFACE_NAME="Proxy${EXISTING_PROXY_IDX}"
                 fi
             fi
 
-            # Remove old TUN interface if index or mode changed
+            # Remove old interface if index or mode changed
             NDMC_IFACE="OpkgTun${TUN_IDX}"
             if [ "$TT_MODE" = "socks5" ]; then
-                IFACE_NAME="Proxy5"
+                IFACE_NAME="Proxy${PROXY_IDX}"
             else
                 IFACE_NAME="${NDMC_IFACE}"
             fi
-            if [ "$EXISTING_MODE" = "tun" ] && [ -n "$OLD_IFACE_NAME" ] && [ "$OLD_IFACE_NAME" != "$IFACE_NAME" ]; then
+            if [ -n "$OLD_IFACE_NAME" ] && [ "$OLD_IFACE_NAME" != "$IFACE_NAME" ]; then
                 echo "Удаляю старый интерфейс ${OLD_IFACE_NAME}..."
                 ndmc -c "no interface ${OLD_IFACE_NAME}" || true
             fi
 
             if [ "$TT_MODE" = "socks5" ]; then
                 # --- SOCKS5 Interface ---
-                if echo "$ndmc_iface_output" | grep -q '^Proxy5'; then
-                    echo "Интерфейс Proxy5 уже существует — пропускаю."
+                if echo "$ndmc_iface_output" | grep -q "^Proxy${PROXY_IDX}"; then
+                    echo "Интерфейс Proxy${PROXY_IDX} уже существует — пропускаю."
                 else
-                    echo "Создаю интерфейс Proxy5..."
-                    ndmc -c 'interface Proxy5'
-                    ndmc -c 'interface Proxy5 description TrustTunnel'
-                    ndmc -c 'interface Proxy5 dyndns nobind'
-                    ndmc -c 'interface Proxy5 proxy protocol socks5'
-                    ndmc -c 'interface Proxy5 proxy upstream 127.0.0.1 1080'
-                    ndmc -c 'interface Proxy5 proxy connect via ISP'
-                    ndmc -c 'interface Proxy5 ip global auto'
-                    ndmc -c 'interface Proxy5 security-level public'
-                    echo "Интерфейс Proxy5 создан."
+                    echo "Создаю интерфейс Proxy${PROXY_IDX}..."
+                    ndmc -c "interface Proxy${PROXY_IDX}"
+                    ndmc -c "interface Proxy${PROXY_IDX} description TrustTunnel-${PROXY_IDX}"
+                    ndmc -c "interface Proxy${PROXY_IDX} dyndns nobind"
+                    ndmc -c "interface Proxy${PROXY_IDX} proxy protocol socks5"
+                    ndmc -c "interface Proxy${PROXY_IDX} proxy upstream 127.0.0.1 1080"
+                    ndmc -c "interface Proxy${PROXY_IDX} proxy connect via ISP"
+                    ndmc -c "interface Proxy${PROXY_IDX} ip global auto"
+                    ndmc -c "interface Proxy${PROXY_IDX} security-level public"
+                    echo "Интерфейс Proxy${PROXY_IDX} создан."
                 fi
 
             else

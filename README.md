@@ -107,17 +107,17 @@ curl -fsSL https://raw.githubusercontent.com/artemevsevev/TrustTunnel-Keenetic/m
 
 Скрипт установки выполнит следующее:
 1. Предложит выбрать режим работы (SOCKS5 или TUN)
-2. В TUN-режиме автоматически определит занятые интерфейсы OpkgTun и предложит первый свободный индекс
+2. Автоматически определит занятые интерфейсы (Proxy для SOCKS5, OpkgTun для TUN) и предложит первый свободный индекс
 3. Скачает и установит скрипты автозапуска (`S99trusttunnel`, `010-trusttunnel.sh`)
 4. Сохранит выбранный режим в `/opt/trusttunnel_client/mode.conf`
-5. Предложит создать интерфейс (Proxy5 для SOCKS5 или OpkgTunN для TUN) и политику маршрутизации TrustTunnel в Keenetic
+5. Предложит создать интерфейс (ProxyN для SOCKS5 или OpkgTunN для TUN) и политику маршрутизации TrustTunnel в Keenetic
 6. Предложит установить/обновить клиент TrustTunnel (поддерживаемые архитектуры: x86_64, aarch64, armv7, mips, mipsel)
 
 ### Сравнение режимов
 
-| | SOCKS5 (Proxy5) | TUN (OpkgTunN) |
+| | SOCKS5 (ProxyN) | TUN (OpkgTunN) |
 |---|---|---|
-| Интерфейс Keenetic | Proxy5 | OpkgTunN (по умолчанию OpkgTun0) |
+| Интерфейс Keenetic | ProxyN (по умолчанию Proxy0) | OpkgTunN (по умолчанию OpkgTun0) |
 | Тип трафика | TCP через SOCKS5-прокси | Весь трафик (TCP/UDP/ICMP) через TUN |
 | Производительность | Ниже (userspace-прокси) | Выше (kernel TUN) |
 | Совместимость | Все версии Keenetic с Entware | Keenetic firmware v5+ с поддержкой OpkgTun |
@@ -184,7 +184,7 @@ mtu_size = 1280
 
 1. Откройте веб-интерфейс Keenetic
 2. Перейдите в раздел **Другие подключения** -> **Прокси-соединения**
-3. Добавьте новое SOCKS5 прокси-соединение с адресом `127.0.0.1` и портом `1080`
+3. Добавьте новое SOCKS5 прокси-соединение с адресом `127.0.0.1` и портом `1080` (имя интерфейса ProxyN, где N — индекс из `mode.conf`)
 4. Настройте маршрутизацию трафика через это соединение
 
 #### Режим TUN
@@ -222,7 +222,7 @@ ndmc -c 'interface OpkgTunN up'
 └── trusttunnel_client/
     ├── trusttunnel_client          # Бинарник клиента
     ├── trusttunnel_client.toml     # Конфигурация
-    └── mode.conf                   # Режим работы (socks5/tun), TUN_IDX
+    └── mode.conf                   # Режим работы (socks5/tun), TUN_IDX, PROXY_IDX
 ```
 
 ## Ручная установка
