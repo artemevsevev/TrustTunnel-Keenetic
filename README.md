@@ -439,7 +439,7 @@ ndmc -c 'show interface' | grep OpkgTunN
 
 # Если нет — создайте вручную (замените N и IP)
 ndmc -c 'interface OpkgTunN'
-ndmc -c 'interface OpkgTunN ip address 10.0.0.2 255.255.255.255'
+ndmc -c 'interface OpkgTunN ip address 172.16.219.2 255.255.255.255'
 ndmc -c 'interface OpkgTunN ip global auto'
 ndmc -c 'interface OpkgTunN security-level public'
 ndmc -c 'interface OpkgTunN up'
