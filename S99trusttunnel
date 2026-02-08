@@ -24,6 +24,9 @@ if [ -f "$MODE_CONF" ]; then
     . "$MODE_CONF"
 fi
 
+TUN_IDX="${TUN_IDX:-0}"
+OPKG_IFACE="opkgtun${TUN_IDX}"
+
 [ "$ENABLED" != "yes" ] && exit 0
 
 log_info() {
@@ -55,19 +58,19 @@ check_prereq() {
     fi
 }
 
-remove_stale_opkgtun0() {
-    if ip link show opkgtun0 >/dev/null 2>&1; then
-        log_info "Stale opkgtun0 found, removing..."
-        ip link set opkgtun0 down 2>/dev/null
-        ip link delete opkgtun0 2>/dev/null
+remove_stale_tun() {
+    if ip link show "$OPKG_IFACE" >/dev/null 2>&1; then
+        log_info "Stale $OPKG_IFACE found, removing..."
+        ip link set "$OPKG_IFACE" down 2>/dev/null
+        ip link delete "$OPKG_IFACE" 2>/dev/null
     fi
 }
 
-rename_tun0_to_opkgtun0() {
-    log_info "Renaming tun0 to opkgtun0..."
+rename_tun_iface() {
+    log_info "Renaming tun0 to $OPKG_IFACE..."
     ip link set tun0 down 2>/dev/null
-    ip link set tun0 name opkgtun0 2>/dev/null
-    ip link set opkgtun0 up 2>/dev/null
+    ip link set tun0 name "$OPKG_IFACE" 2>/dev/null
+    ip link set "$OPKG_IFACE" up 2>/dev/null
 }
 
 wait_and_rename_tun() {
@@ -79,13 +82,13 @@ wait_and_rename_tun() {
     elapsed=0
     while [ $elapsed -lt 30 ]; do
         if ip link show tun0 >/dev/null 2>&1; then
-            remove_stale_opkgtun0
-            rename_tun0_to_opkgtun0
-            if ip link show opkgtun0 >/dev/null 2>&1; then
-                log_info "tun0 renamed to opkgtun0 successfully"
+            remove_stale_tun
+            rename_tun_iface
+            if ip link show "$OPKG_IFACE" >/dev/null 2>&1; then
+                log_info "tun0 renamed to $OPKG_IFACE successfully"
                 return 0
             else
-                log_error "Failed to rename tun0 to opkgtun0"
+                log_error "Failed to rename tun0 to $OPKG_IFACE"
                 return 1
             fi
         fi
@@ -102,9 +105,9 @@ cleanup_tun() {
         return 0
     fi
 
-    if ip link show opkgtun0 >/dev/null 2>&1; then
-        ip link set opkgtun0 down 2>/dev/null
-        log_info "opkgtun0 brought down"
+    if ip link show "$OPKG_IFACE" >/dev/null 2>&1; then
+        ip link set "$OPKG_IFACE" down 2>/dev/null
+        log_info "$OPKG_IFACE brought down"
     fi
     if ip link show tun0 >/dev/null 2>&1; then
         ip link set tun0 down 2>/dev/null
@@ -118,8 +121,8 @@ fix_unrenamed_tun() {
     fi
 
     if ip link show tun0 >/dev/null 2>&1; then
-        remove_stale_opkgtun0
-        rename_tun0_to_opkgtun0
+        remove_stale_tun
+        rename_tun_iface
     fi
 }
 
@@ -315,8 +318,8 @@ status() {
         fi
 
         if [ "$TT_MODE" = "tun" ]; then
-            if ip link show opkgtun0 >/dev/null 2>&1; then
-                echo "TUN interface: opkgtun0 is UP"
+            if ip link show "$OPKG_IFACE" >/dev/null 2>&1; then
+                echo "TUN interface: $OPKG_IFACE is UP"
             elif ip link show tun0 >/dev/null 2>&1; then
                 echo "TUN interface: tun0 exists (not yet renamed)"
             else
