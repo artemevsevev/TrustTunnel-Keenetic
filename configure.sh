@@ -9,15 +9,18 @@ if [ -z "$REPO_URL" ]; then
 fi
 
 cleanup_on_error() {
-    echo ""
-    echo "!!! Установка прервана из-за ошибки !!!"
-    echo "Для повторной установки запустите скрипт заново."
-    echo "Для очистки вручную удалите:"
-    echo "  rm -f /opt/etc/init.d/S99trusttunnel"
-    echo "  rm -f /opt/etc/ndm/wan.d/010-trusttunnel.sh"
-    echo "  rm -f /opt/trusttunnel_client/mode.conf"
+    exit_code=$?
+    if [ $exit_code -ne 0 ]; then
+        echo ""
+        echo "!!! Установка прервана из-за ошибки (код: $exit_code) !!!"
+        echo "Для повторной установки запустите скрипт заново."
+        echo "Для очистки вручную удалите:"
+        echo "  rm -f /opt/etc/init.d/S99trusttunnel"
+        echo "  rm -f /opt/etc/ndm/wan.d/010-trusttunnel.sh"
+        echo "  rm -f /opt/trusttunnel_client/mode.conf"
+    fi
 }
-trap cleanup_on_error ERR
+trap cleanup_on_error EXIT
 
 if [ ! -d "/opt" ]; then
     echo "Ошибка: /opt не найден. Сначала установите Entware."
@@ -57,11 +60,11 @@ find_free_index() {
     _fi_scan=$(ndmc -c 'show interface' 2>/dev/null) || return
     [ -n "$_fi_scan" ] || return
 
-    _fi_used=$(echo "$_fi_scan" | grep "^${_fi_prefix}[0-9]" | sed "s/^${_fi_prefix}\([0-9]*\).*/\1/" | sort -n)
+    _fi_used=$(echo "$_fi_scan" | grep -E "${_fi_prefix}[0-9]+" | sed -E "s/.*${_fi_prefix}([0-9]+).*/\1/" | sort -nu)
     [ -n "$_fi_used" ] || return
 
     echo "Обнаружены существующие ${_fi_prefix}-интерфейсы:"
-    echo "$_fi_scan" | grep "^${_fi_prefix}[0-9]" | while read -r _fi_line; do
+    echo "$_fi_scan" | grep -E "${_fi_prefix}[0-9]+" | while read -r _fi_line; do
         echo "  $_fi_line"
     done
     echo ""
@@ -175,6 +178,7 @@ PROXY_IDX="$PROXY_IDX"
 # HC_GRACE_PERIOD=60
 # HC_TARGET_URL="http://connectivitycheck.gstatic.com/generate_204"
 # HC_CURL_TIMEOUT=5
+# HC_SOCKS5_PROXY="127.0.0.1:1080"
 MEOF
 echo "mode.conf сохранён (TT_MODE=$TT_MODE)."
 
@@ -290,3 +294,5 @@ else
 fi
 echo "3. Запустите сервис: /opt/etc/init.d/S99trusttunnel start"
 echo ""
+
+exit 0
