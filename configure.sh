@@ -198,21 +198,21 @@ PROXY_IDX="$PROXY_IDX"
 MEOF
 echo "mode.conf сохранён (TT_MODE=$TT_MODE)."
 
-# === Policy + Interface ===
-if ask_yes_no "Создать policy TrustTunnel и интерфейс TrustTunnel?"; then
+# === Interface ===
+if ask_yes_no "Создать интерфейс TrustTunnel?"; then
 
     if ! command -v ndmc >/dev/null 2>&1; then
         echo "Ошибка: команда 'ndmc' не найдена. Настройка интерфейсов невозможна."
-        echo "Настройте интерфейс и policy вручную через веб-интерфейс роутера."
+        echo "Настройте интерфейс вручную через веб-интерфейс роутера."
     else
         ndmc_iface_output=$(ndmc -c 'show interface' 2>&1) || {
             echo "Ошибка: не удалось получить список интерфейсов от ndmc."
-            echo "Настройте интерфейс и policy вручную через веб-интерфейс роутера."
+            echo "Настройте интерфейс вручную через веб-интерфейс роутера."
             ndmc_iface_output=""
         }
 
         if [ -n "$ndmc_iface_output" ]; then
-            # Determine old interface name for cleanup and policy migration
+            # Determine old interface name for cleanup
             OLD_IFACE_NAME=""
             if [ -n "$EXISTING_MODE" ]; then
                 if [ "$EXISTING_MODE" = "tun" ]; then
@@ -271,31 +271,12 @@ if ask_yes_no "Создать policy TrustTunnel и интерфейс TrustTunn
 
             fi
 
-            # --- Policy ---
-            ndmc_policy_output=$(ndmc -c 'show ip policy' 2>&1) || ndmc_policy_output=""
-            if [ -n "$ndmc_policy_output" ] && echo "$ndmc_policy_output" | grep -q '^TrustTunnel'; then
-                echo "Policy TrustTunnel уже существует."
-                # Update permit rule if interface changed (mode switch or TUN index change)
-                if [ -n "$OLD_IFACE_NAME" ] && [ "$OLD_IFACE_NAME" != "$IFACE_NAME" ]; then
-                    echo "Обновляю policy TrustTunnel: ${OLD_IFACE_NAME} → ${IFACE_NAME}..."
-                    ndmc -c "no ip policy TrustTunnel permit global ${OLD_IFACE_NAME}" 2>/dev/null || true
-                    ndmc -c "ip policy TrustTunnel permit global ${IFACE_NAME}"
-                    echo "Policy обновлена."
-                fi
-            else
-                echo "Создаю ip policy TrustTunnel..."
-                ndmc -c 'ip policy TrustTunnel'
-                ndmc -c 'ip policy TrustTunnel description TrustTunnel'
-                ndmc -c "ip policy TrustTunnel permit global $IFACE_NAME"
-                echo "Policy TrustTunnel создана."
-            fi
-
             ndmc -c 'system configuration save'
             echo "Конфигурация сохранена."
         fi
     fi
 else
-    echo "Настройка policy и интерфейса пропущена."
+    echo "Настройка интерфейса пропущена."
 fi
 
 
