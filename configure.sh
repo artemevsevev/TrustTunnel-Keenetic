@@ -1,6 +1,8 @@
 #!/bin/sh
 
 set -e
+# Uncomment for debugging:
+# set -x
 
 # REPO_URL передаётся из install.sh через переменную окружения
 if [ -z "$REPO_URL" ]; then
@@ -54,17 +56,21 @@ find_free_index() {
     fi
 
     if ! command -v ndmc >/dev/null 2>&1; then
-        return
+        return 0
     fi
 
-    _fi_scan=$(ndmc -c 'show interface' 2>/dev/null) || return
-    [ -n "$_fi_scan" ] || return
+    _fi_scan=$(ndmc -c 'show interface' 2>/dev/null) || return 0
+    [ -n "$_fi_scan" ] || return 0
 
     _fi_used=$(echo "$_fi_scan" | grep -E "${_fi_prefix}[0-9]+" | sed -E "s/.*${_fi_prefix}([0-9]+).*/\1/" | sort -nu || true)
-    [ -n "$_fi_used" ] || return
+
+    # If no interfaces found, just return with default_idx already set
+    if [ -z "$_fi_used" ]; then
+        return 0
+    fi
 
     echo "Обнаружены существующие ${_fi_prefix}-интерфейсы:"
-    echo "$_fi_scan" | grep -E "${_fi_prefix}[0-9]+" | while read -r _fi_line; do
+    echo "$_fi_scan" | { grep -E "${_fi_prefix}[0-9]+" || true; } | while read -r _fi_line; do
         echo "  $_fi_line"
     done
     echo ""
@@ -78,6 +84,8 @@ find_free_index() {
         done
         default_idx="$_fi_next"
     fi
+
+    return 0
 }
 
 # === Read existing config ===
