@@ -107,7 +107,7 @@ curl -fsSL https://raw.githubusercontent.com/artemevsevev/TrustTunnel-Keenetic/m
 
 Скрипт установки выполнит следующее:
 1. Предложит выбрать режим работы (SOCKS5 или TUN)
-2. В TUN-режиме запросит индекс интерфейса OpkgTun (по умолчанию 0)
+2. В TUN-режиме автоматически определит занятые интерфейсы OpkgTun и предложит первый свободный индекс
 3. Скачает и установит скрипты автозапуска (`S99trusttunnel`, `010-trusttunnel.sh`)
 4. Сохранит выбранный режим в `/opt/trusttunnel_client/mode.conf`
 5. Предложит создать интерфейс (Proxy5 для SOCKS5 или OpkgTunN для TUN) и политику маршрутизации TrustTunnel в Keenetic
@@ -193,7 +193,7 @@ mtu_size = 1280
 
 ```bash
 ndmc -c 'interface OpkgTunN'
-ndmc -c 'interface OpkgTunN description TrustTunnel'
+ndmc -c 'interface OpkgTunN description TrustTunnel-N'
 ndmc -c 'interface OpkgTunN ip address <TUN_IP> 255.255.255.255'
 ndmc -c 'interface OpkgTunN ip global auto'
 ndmc -c 'interface OpkgTunN ip mtu 1280'
