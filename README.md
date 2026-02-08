@@ -105,6 +105,12 @@ curl -fsSL https://raw.githubusercontent.com/artemevsevev/TrustTunnel-Keenetic/m
 wget -qO- https://raw.githubusercontent.com/artemevsevev/TrustTunnel-Keenetic/main/install.sh | sh
 ```
 
+> Скрипт автоматически определяет последнюю стабильную версию (GitHub Release).
+> Для установки конкретной версии:
+> ```bash
+> curl -fsSL https://raw.githubusercontent.com/artemevsevev/TrustTunnel-Keenetic/main/install.sh | sh -s -- --version v1.0.0
+> ```
+
 Скрипт установки выполнит следующее:
 1. Предложит выбрать режим работы (SOCKS5 или TUN)
 2. В TUN-режиме запросит индекс интерфейса OpkgTun (по умолчанию 0)
@@ -233,6 +239,8 @@ ndmc -c 'interface OpkgTunN up'
 Если вы предпочитаете ручную установку вместо скрипта:
 
 ```bash
+VERSION="v1.0.0"  # Укажите нужную версию (тег GitHub Release)
+
 # Создаём директории
 mkdir -p /opt/etc/init.d
 mkdir -p /opt/etc/ndm/wan.d
@@ -240,11 +248,11 @@ mkdir -p /opt/var/run
 mkdir -p /opt/var/log
 
 # Init-скрипт
-curl -fsSL https://raw.githubusercontent.com/artemevsevev/TrustTunnel-Keenetic/main/S99trusttunnel -o /opt/etc/init.d/S99trusttunnel
+curl -fsSL "https://raw.githubusercontent.com/artemevsevev/TrustTunnel-Keenetic/${VERSION}/S99trusttunnel" -o /opt/etc/init.d/S99trusttunnel
 chmod +x /opt/etc/init.d/S99trusttunnel
 
 # WAN-хук
-curl -fsSL https://raw.githubusercontent.com/artemevsevev/TrustTunnel-Keenetic/main/010-trusttunnel.sh -o /opt/etc/ndm/wan.d/010-trusttunnel.sh
+curl -fsSL "https://raw.githubusercontent.com/artemevsevev/TrustTunnel-Keenetic/${VERSION}/010-trusttunnel.sh" -o /opt/etc/ndm/wan.d/010-trusttunnel.sh
 chmod +x /opt/etc/ndm/wan.d/010-trusttunnel.sh
 
 # Убедитесь, что клиент исполняемый
