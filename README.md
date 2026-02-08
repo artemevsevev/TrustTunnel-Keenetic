@@ -160,16 +160,14 @@ password = ""
 [listener]
 
 [listener.tun]
-# Пустой список — маршрутизацией управляет Keenetic через policy
-included_routes = []
-# DNS управляет Keenetic
+bound_if = ""
+included_routes = ["0.0.0.0/0", "2000::/3"]
+excluded_routes = ["0.0.0.0/8", "10.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.168.0.0/16", "224.0.0.0/3"]
 change_system_dns = false
 mtu_size = 1280
 ```
 
 Секции `[listener.socks]` в файле быть не должно.
-
-> **Важно:** `included_routes = []` означает, что клиент не будет добавлять маршруты — маршрутизация полностью управляется через Keenetic policy. `change_system_dns = false` предотвращает изменение DNS-настроек системы.
 
 Проверить запуск:
 ```bash
