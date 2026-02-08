@@ -2,7 +2,7 @@
 
 set -e
 # Uncomment for debugging:
-# set -x
+set -x
 
 # REPO_URL передаётся из install.sh через переменную окружения
 if [ -z "$REPO_URL" ]; then
