@@ -37,6 +37,46 @@ ask_yes_no() {
     [ "$answer" = "y" ] || [ "$answer" = "Y" ]
 }
 
+# Find first free interface index by prefix
+# Usage: find_free_index <prefix> <existing_idx>
+# Sets shell variable: default_idx
+find_free_index() {
+    _fi_prefix="$1"
+    _fi_existing="$2"
+
+    if [ -n "$_fi_existing" ]; then
+        default_idx="$_fi_existing"
+    else
+        default_idx="0"
+    fi
+
+    if ! command -v ndmc >/dev/null 2>&1; then
+        return
+    fi
+
+    _fi_scan=$(ndmc -c 'show interface' 2>/dev/null) || return
+    [ -n "$_fi_scan" ] || return
+
+    _fi_used=$(echo "$_fi_scan" | grep "^${_fi_prefix}[0-9]" | sed "s/^${_fi_prefix}\([0-9]*\).*/\1/" | sort -n)
+    [ -n "$_fi_used" ] || return
+
+    echo "Обнаружены существующие ${_fi_prefix}-интерфейсы:"
+    echo "$_fi_scan" | grep "^${_fi_prefix}[0-9]" | while read -r _fi_line; do
+        echo "  $_fi_line"
+    done
+    echo ""
+
+    if [ -z "$_fi_existing" ]; then
+        _fi_next=0
+        for _fi_idx in $_fi_used; do
+            if [ "$_fi_next" -eq "$_fi_idx" ]; then
+                _fi_next=$((_fi_next + 1))
+            fi
+        done
+        default_idx="$_fi_next"
+    fi
+}
+
 # === Read existing config ===
 EXISTING_TUN_IDX=""
 EXISTING_PROXY_IDX=""
@@ -73,38 +113,7 @@ if [ "$TT_MODE" = "tun" ]; then
     echo "TUN IPv6: $TUN_IPV6"
     echo ""
 
-    # Определение дефолтного индекса
-    if [ -n "$EXISTING_TUN_IDX" ]; then
-        # Переконфигурация — используем сохранённый индекс
-        default_idx="$EXISTING_TUN_IDX"
-    else
-        # Первая установка — ищем первый свободный
-        default_idx="0"
-    fi
-
-    if command -v ndmc >/dev/null 2>&1; then
-        ndmc_scan=$(ndmc -c 'show interface' 2>/dev/null) || ndmc_scan=""
-        if [ -n "$ndmc_scan" ]; then
-            used_indices=$(echo "$ndmc_scan" | grep -o '^OpkgTun[0-9]*' | sed 's/^OpkgTun//' | sort -n)
-            if [ -n "$used_indices" ]; then
-                echo "Обнаружены существующие TUN-интерфейсы:"
-                echo "$ndmc_scan" | grep '^OpkgTun[0-9]*' | while read -r line; do
-                    echo "  $line"
-                done
-                echo ""
-                # Если первая установка — ищем первый свободный индекс
-                if [ -z "$EXISTING_TUN_IDX" ]; then
-                    next_idx=0
-                    for idx in $used_indices; do
-                        if [ "$next_idx" -eq "$idx" ]; then
-                            next_idx=$((next_idx + 1))
-                        fi
-                    done
-                    default_idx="$next_idx"
-                fi
-            fi
-        fi
-    fi
+    find_free_index "OpkgTun" "$EXISTING_TUN_IDX"
 
     printf "Индекс TUN-интерфейса OpkgTun (по умолчанию %s): " "$default_idx"
     read tun_idx_input < /dev/tty
@@ -116,44 +125,15 @@ if [ "$TT_MODE" = "tun" ]; then
     esac
     echo "Интерфейс: OpkgTun${TUN_IDX} (opkgtun${TUN_IDX})"
     echo ""
-    PROXY_IDX="0"
+    PROXY_IDX="${EXISTING_PROXY_IDX:-0}"
 else
-    TUN_IDX="0"
+    TUN_IDX="${EXISTING_TUN_IDX:-0}"
 
-    # Определение дефолтного индекса Proxy
-    if [ -n "$EXISTING_PROXY_IDX" ]; then
-        default_proxy_idx="$EXISTING_PROXY_IDX"
-    else
-        default_proxy_idx="0"
-    fi
+    find_free_index "Proxy" "$EXISTING_PROXY_IDX"
 
-    if command -v ndmc >/dev/null 2>&1; then
-        ndmc_proxy_scan=$(ndmc -c 'show interface' 2>/dev/null) || ndmc_proxy_scan=""
-        if [ -n "$ndmc_proxy_scan" ]; then
-            used_proxy_indices=$(echo "$ndmc_proxy_scan" | grep -o '^Proxy[0-9]*' | sed 's/^Proxy//' | sort -n)
-            if [ -n "$used_proxy_indices" ]; then
-                echo "Обнаружены существующие Proxy-интерфейсы:"
-                echo "$ndmc_proxy_scan" | grep '^Proxy[0-9]*' | while read -r line; do
-                    echo "  $line"
-                done
-                echo ""
-                # Если первая установка — ищем первый свободный индекс
-                if [ -z "$EXISTING_PROXY_IDX" ]; then
-                    next_proxy_idx=0
-                    for idx in $used_proxy_indices; do
-                        if [ "$next_proxy_idx" -eq "$idx" ]; then
-                            next_proxy_idx=$((next_proxy_idx + 1))
-                        fi
-                    done
-                    default_proxy_idx="$next_proxy_idx"
-                fi
-            fi
-        fi
-    fi
-
-    printf "Индекс интерфейса Proxy (по умолчанию %s): " "$default_proxy_idx"
+    printf "Индекс интерфейса Proxy (по умолчанию %s): " "$default_idx"
     read proxy_idx_input < /dev/tty
-    PROXY_IDX="${proxy_idx_input:-$default_proxy_idx}"
+    PROXY_IDX="${proxy_idx_input:-$default_idx}"
     case "$PROXY_IDX" in
         ''|*[!0-9]*)
             echo "Ошибка: индекс должен быть неотрицательным числом."
