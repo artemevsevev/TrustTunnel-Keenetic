@@ -257,6 +257,7 @@ if ask_yes_no "Создать интерфейс TrustTunnel?"; then
                     ndmc -c "interface ${NDMC_IFACE} ip tcp adjust-mss pmtu"
                     ndmc -c "interface ${NDMC_IFACE} security-level public"
                     ndmc -c "interface ${NDMC_IFACE} up"
+                    ndmc -c "ip route default ${NDMC_IFACE}"
                     echo "Интерфейс ${NDMC_IFACE} создан."
                 fi
 
@@ -290,6 +291,7 @@ if [ "$TT_MODE" = "tun" ]; then
     echo "   В конфигурации клиента добавьте секцию [listener.tun]:"
     echo "   [listener.tun]"
     echo "   included_routes = []"
+    echo "   excluded_routes = []"
     echo "   change_system_dns = false"
     echo ""
     echo "   Секции [listener.socks] в файле быть не должно."

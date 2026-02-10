@@ -11,6 +11,14 @@ fi
 
 TUN_IDX="${TUN_IDX:-0}"
 OPKG_IFACE="opkgtun${TUN_IDX}"
+NDMC_IFACE="OpkgTun${TUN_IDX}"
+
+# Skip reload when triggered by our own TUN interface
+# (prevents infinite restart loop when OpkgTun is a default gateway)
+if [ "$1" = "$NDMC_IFACE" ]; then
+    logger -t "$LOG_TAG" "WAN event for own TUN interface ($1), skipping"
+    exit 0
+fi
 
 sleep 5
 
