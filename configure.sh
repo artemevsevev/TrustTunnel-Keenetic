@@ -242,7 +242,13 @@ if ask_yes_no "Создать интерфейс TrustTunnel?"; then
                 ndmc -c "no interface ${OLD_IFACE_NAME}" || true
             fi
 
-            if [ "$TT_MODE" = "socks5" ]; then
+            if [ -n "$OLD_IFACE_NAME" ] && [ "$OLD_IFACE_NAME" = "$IFACE_NAME" ]; then
+                # Interface already configured — skip creation, just ensure default route
+                echo "Интерфейс ${IFACE_NAME} уже настроен, пропускаю создание."
+                if [ "$TT_MODE" = "tun" ]; then
+                    ndmc -c "ip route default ${NDMC_IFACE}"
+                fi
+            elif [ "$TT_MODE" = "socks5" ]; then
                 # --- SOCKS5 Interface ---
                 echo "Настраиваю интерфейс Proxy${PROXY_IDX}..."
                 ndmc -c "interface Proxy${PROXY_IDX}"
@@ -253,7 +259,6 @@ if ask_yes_no "Создать интерфейс TrustTunnel?"; then
                 ndmc -c "interface Proxy${PROXY_IDX} ip global auto"
                 ndmc -c "interface Proxy${PROXY_IDX} security-level public"
                 echo "Интерфейс Proxy${PROXY_IDX} настроен."
-
             else
                 # --- TUN Interface ---
                 echo "Настраиваю интерфейс ${NDMC_IFACE}..."
@@ -268,7 +273,6 @@ if ask_yes_no "Создать интерфейс TrustTunnel?"; then
                 ndmc -c "interface ${NDMC_IFACE} up"
                 ndmc -c "ip route default ${NDMC_IFACE}"
                 echo "Интерфейс ${NDMC_IFACE} настроен."
-
             fi
 
             ndmc -c 'system configuration save'
