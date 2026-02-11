@@ -82,6 +82,11 @@ rename_tun_iface() {
     ip link set tun0 down 2>/dev/null
     ip link set tun0 name "$OPKG_IFACE" 2>/dev/null
     ip link set "$OPKG_IFACE" up 2>/dev/null
+    # Assign IPv6 address (client binary only sets IPv4)
+    if [ -n "$TUN_IPV6" ]; then
+        ip -6 addr add "$TUN_IPV6/128" dev "$OPKG_IFACE" 2>/dev/null
+        log_info "IPv6 address $TUN_IPV6 assigned to $OPKG_IFACE"
+    fi
 }
 
 wait_and_rename_tun() {
