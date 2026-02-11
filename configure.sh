@@ -247,6 +247,7 @@ if ask_yes_no "Создать интерфейс TrustTunnel?"; then
                 echo "Интерфейс ${IFACE_NAME} уже настроен, пропускаю создание."
                 if [ "$TT_MODE" = "tun" ]; then
                     ndmc -c "ip route default ${NDMC_IFACE}"
+                    ndmc -c "ipv6 route default ${NDMC_IFACE}"
                 fi
             elif [ "$TT_MODE" = "socks5" ]; then
                 # --- SOCKS5 Interface ---
@@ -272,6 +273,7 @@ if ask_yes_no "Создать интерфейс TrustTunnel?"; then
                 ndmc -c "interface ${NDMC_IFACE} security-level public"
                 ndmc -c "interface ${NDMC_IFACE} up"
                 ndmc -c "ip route default ${NDMC_IFACE}"
+                ndmc -c "ipv6 route default ${NDMC_IFACE}"
                 echo "Интерфейс ${NDMC_IFACE} настроен."
             fi
 
