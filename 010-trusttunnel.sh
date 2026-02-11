@@ -34,7 +34,20 @@ fi
 
 sleep 5
 
-logger -t "$LOG_TAG" "WAN interface up, checking TrustTunnel..."
+# Only reload if the service was running (watchdog is alive)
+WATCHDOG_PID_FILE="/opt/var/run/trusttunnel_watchdog.pid"
+if [ -f "$WATCHDOG_PID_FILE" ]; then
+    wpid=$(cat "$WATCHDOG_PID_FILE" 2>/dev/null)
+    if [ -z "$wpid" ] || ! kill -0 "$wpid" 2>/dev/null; then
+        logger -t "$LOG_TAG" "WAN up but service is not running, skipping"
+        exit 0
+    fi
+else
+    logger -t "$LOG_TAG" "WAN up but service is not running, skipping"
+    exit 0
+fi
+
+logger -t "$LOG_TAG" "WAN interface up, reloading TrustTunnel..."
 
 if [ "$TT_MODE" = "tun" ]; then
     logger -t "$LOG_TAG" "TUN mode: bringing down tunnel interfaces before reload..."
