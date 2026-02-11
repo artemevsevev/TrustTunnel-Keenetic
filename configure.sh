@@ -38,8 +38,11 @@ fi
 
 ask_yes_no() {
     printf "%s (y/n) " "$1"
-    read answer < /dev/tty
-    [ "$answer" = "y" ] || [ "$answer" = "Y" ]
+    read answer < /dev/tty || return 1
+    case "$answer" in
+        y|Y) return 0 ;;
+        *) return 1 ;;
+    esac
 }
 
 # Find first free interface index by prefix
