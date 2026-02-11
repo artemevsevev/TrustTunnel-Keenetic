@@ -20,6 +20,18 @@ if [ "$1" = "$NDMC_IFACE" ]; then
     exit 0
 fi
 
+# Skip reload if client was started recently (prevents restart during startup)
+START_TS_FILE="/opt/var/run/trusttunnel_start_ts"
+GRACE_PERIOD=30
+if [ -f "$START_TS_FILE" ]; then
+    start_ts=$(cat "$START_TS_FILE" 2>/dev/null)
+    now=$(date +%s)
+    if [ -n "$start_ts" ] && [ $((now - start_ts)) -lt "$GRACE_PERIOD" ]; then
+        logger -t "$LOG_TAG" "Client started ${start_ts:+$((now - start_ts))s ago}, skipping WAN reload"
+        exit 0
+    fi
+fi
+
 sleep 5
 
 logger -t "$LOG_TAG" "WAN interface up, checking TrustTunnel..."
