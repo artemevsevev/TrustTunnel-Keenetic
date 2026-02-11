@@ -164,8 +164,8 @@ password = ""
 
 [listener.tun]
 bound_if = ""
-included_routes = ["0.0.0.0/0", "2000::/3"]
-excluded_routes = ["0.0.0.0/8", "10.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.168.0.0/16", "224.0.0.0/3"]
+included_routes = []
+excluded_routes = []
 change_system_dns = false
 mtu_size = 1280
 ```
@@ -206,7 +206,10 @@ ndmc -c 'interface OpkgTunN ip mtu 1280'
 ndmc -c 'interface OpkgTunN ip tcp adjust-mss pmtu'
 ndmc -c 'interface OpkgTunN security-level public'
 ndmc -c 'interface OpkgTunN up'
+ndmc -c 'ip route default OpkgTunN'
 ```
+
+> **Важно:** Команда `ip route default` необходима для корректной работы политик маршрутизации Keenetic через OpkgTunN.
 
 ## Структура файлов
 
@@ -440,5 +443,6 @@ ndmc -c 'interface OpkgTunN ip address 172.16.219.2 255.255.255.255'
 ndmc -c 'interface OpkgTunN ip global auto'
 ndmc -c 'interface OpkgTunN security-level public'
 ndmc -c 'interface OpkgTunN up'
+ndmc -c 'ip route default OpkgTunN'
 ndmc -c 'system configuration save'
 ```
