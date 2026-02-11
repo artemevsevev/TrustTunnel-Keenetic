@@ -10,13 +10,13 @@ All user-facing text (prompts, README) is in **Russian**. Code comments are in E
 
 ## Architecture
 
-The system has three main components that run on the router:
+The system has four main components:
 
 1. **install.sh** — Bootstrap installer. Detects the latest GitHub release (or accepts `--dev`/`--version` flags), downloads configure.sh, and executes it.
 
-2. **configure.sh** — Interactive configuration script. Checks prerequisites (curl, Entware, ndmc), prompts for mode selection (SOCKS5 vs TUN), auto-detects free Keenetic interface indices via `ndmc`, installs init scripts and WAN hooks, generates `mode.conf`, and optionally downloads the TrustTunnel client binary.
+2. **configure.sh** — Interactive configuration script. Expects `REPO_URL` env var from install.sh. Checks prerequisites (curl, Entware, ndmc), prompts for mode selection (SOCKS5 vs TUN), auto-detects free Keenetic interface indices via `ndmc`, installs init scripts and WAN hooks, generates `mode.conf`, and optionally downloads the TrustTunnel client binary.
 
-3. **S99trusttunnel** — Entware init script (`/opt/etc/init.d/`). Manages the client process lifecycle with a watchdog that implements exponential backoff (10s→300s, max 10 retries). In TUN mode, handles renaming `tun0` → `opkgtunN` for Keenetic recognition. Runs periodic health checks (HTTP connectivity via curl) and auto-restarts on failure.
+3. **S99trusttunnel** — Entware init script (`/opt/etc/init.d/`). Manages the client process lifecycle with a watchdog that implements linear backoff (10s→300s, max 10 retries). In TUN mode, handles renaming `tun0` → `opkgtunN` for Keenetic recognition. Runs periodic health checks (HTTP connectivity via curl) and auto-restarts on failure. The `watchdog` subcommand is an internal entrypoint — the `start` action calls `$0 watchdog &` to launch it as a background process.
 
 4. **010-trusttunnel.sh** — WAN hook (`/opt/etc/ndm/wan.d/`). Triggers service reload when the WAN interface comes up, ensuring client reconnects after network changes.
 
@@ -54,5 +54,5 @@ Push a tag matching `v*` (e.g., `v1.0.0`) to trigger the GitHub Actions workflow
 /opt/etc/init.d/S99trusttunnel start|stop|restart|reload|status|check
 ```
 
-- `reload` — soft restart: stops client, watchdog respawns it
-- `check` — alias for `status`
+- `reload` — soft restart: kills the client process, watchdog detects it and respawns. Falls back to full `restart` if watchdog is dead.
+- `check` — conditional reload: calls `reload` only if the client is not running (not the same as `status`)
