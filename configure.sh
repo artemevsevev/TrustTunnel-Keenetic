@@ -45,6 +45,13 @@ ask_yes_no() {
     esac
 }
 
+# === Stop running service ===
+INIT_SCRIPT="/opt/etc/init.d/S99trusttunnel"
+if [ -x "$INIT_SCRIPT" ]; then
+    echo "Останавливаю TrustTunnel..."
+    "$INIT_SCRIPT" stop || true
+fi
+
 # Find first free interface index by prefix
 # Usage: find_free_index <prefix> <existing_idx>
 # Sets shell variable: default_idx
