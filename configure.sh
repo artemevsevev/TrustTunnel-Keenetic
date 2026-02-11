@@ -100,11 +100,17 @@ if [ -f /opt/trusttunnel_client/mode.conf ]; then
 fi
 
 # === Mode selection ===
+if [ "$EXISTING_MODE" = "tun" ]; then
+    default_mode=2
+else
+    default_mode=1
+fi
 echo "Выберите режим работы TrustTunnel:"
-echo "  1) SOCKS5 — проксирование через интерфейс Proxy (по умолчанию)"
+echo "  1) SOCKS5 — проксирование через интерфейс Proxy"
 echo "  2) TUN    — туннель через интерфейс OpkgTun (только для прошивки 5.x)"
-printf "Режим [1]: "
+printf "Режим [%s]: " "$default_mode"
 read mode_choice < /dev/tty
+mode_choice="${mode_choice:-$default_mode}"
 case "$mode_choice" in
     2) TT_MODE="tun" ;;
     *) TT_MODE="socks5" ;;
