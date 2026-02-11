@@ -228,38 +228,30 @@ if ask_yes_no "Создать интерфейс TrustTunnel?"; then
 
             if [ "$TT_MODE" = "socks5" ]; then
                 # --- SOCKS5 Interface ---
-                if echo "$ndmc_iface_output" | grep -q "^Proxy${PROXY_IDX}"; then
-                    echo "Интерфейс Proxy${PROXY_IDX} уже существует — пропускаю."
-                else
-                    echo "Создаю интерфейс Proxy${PROXY_IDX}..."
-                    ndmc -c "interface Proxy${PROXY_IDX}"
-                    ndmc -c "interface Proxy${PROXY_IDX} description \"TrustTunnel Proxy ${PROXY_IDX}\""
-                    ndmc -c "interface Proxy${PROXY_IDX} proxy protocol socks5"
-                    ndmc -c "interface Proxy${PROXY_IDX} proxy upstream 127.0.0.1 1080"
-                    ndmc -c "interface Proxy${PROXY_IDX} proxy connect via ISP"
-                    ndmc -c "interface Proxy${PROXY_IDX} ip global auto"
-                    ndmc -c "interface Proxy${PROXY_IDX} security-level public"
-                    echo "Интерфейс Proxy${PROXY_IDX} создан."
-                fi
+                echo "Настраиваю интерфейс Proxy${PROXY_IDX}..."
+                ndmc -c "interface Proxy${PROXY_IDX}"
+                ndmc -c "interface Proxy${PROXY_IDX} description \"TrustTunnel Proxy ${PROXY_IDX}\""
+                ndmc -c "interface Proxy${PROXY_IDX} proxy protocol socks5"
+                ndmc -c "interface Proxy${PROXY_IDX} proxy upstream 127.0.0.1 1080"
+                ndmc -c "interface Proxy${PROXY_IDX} proxy connect via ISP"
+                ndmc -c "interface Proxy${PROXY_IDX} ip global auto"
+                ndmc -c "interface Proxy${PROXY_IDX} security-level public"
+                echo "Интерфейс Proxy${PROXY_IDX} настроен."
 
             else
                 # --- TUN Interface ---
-                if echo "$ndmc_iface_output" | grep -q "^${NDMC_IFACE}"; then
-                    echo "Интерфейс ${NDMC_IFACE} уже существует — пропускаю."
-                else
-                    echo "Создаю интерфейс ${NDMC_IFACE}..."
-                    ndmc -c "interface ${NDMC_IFACE}"
-                    ndmc -c "interface ${NDMC_IFACE} description \"TrustTunnel TUN ${TUN_IDX}\""
-                    ndmc -c "interface ${NDMC_IFACE} ip global auto"
-                    ndmc -c "interface ${NDMC_IFACE} ip address $TUN_IP 255.255.255.255"
-                    ndmc -c "interface ${NDMC_IFACE} ipv6 address $TUN_IPV6"
-                    ndmc -c "interface ${NDMC_IFACE} ip mtu 1280"
-                    ndmc -c "interface ${NDMC_IFACE} ip tcp adjust-mss pmtu"
-                    ndmc -c "interface ${NDMC_IFACE} security-level public"
-                    ndmc -c "interface ${NDMC_IFACE} up"
-                    ndmc -c "ip route default ${NDMC_IFACE}"
-                    echo "Интерфейс ${NDMC_IFACE} создан."
-                fi
+                echo "Настраиваю интерфейс ${NDMC_IFACE}..."
+                ndmc -c "interface ${NDMC_IFACE}"
+                ndmc -c "interface ${NDMC_IFACE} description \"TrustTunnel TUN ${TUN_IDX}\""
+                ndmc -c "interface ${NDMC_IFACE} ip global auto"
+                ndmc -c "interface ${NDMC_IFACE} ip address $TUN_IP 255.255.255.255"
+                ndmc -c "interface ${NDMC_IFACE} ipv6 address $TUN_IPV6"
+                ndmc -c "interface ${NDMC_IFACE} ip mtu 1280"
+                ndmc -c "interface ${NDMC_IFACE} ip tcp adjust-mss pmtu"
+                ndmc -c "interface ${NDMC_IFACE} security-level public"
+                ndmc -c "interface ${NDMC_IFACE} up"
+                ndmc -c "ip route default ${NDMC_IFACE}"
+                echo "Интерфейс ${NDMC_IFACE} настроен."
 
             fi
 
