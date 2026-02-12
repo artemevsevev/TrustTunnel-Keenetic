@@ -246,7 +246,7 @@ if ask_yes_no "Создать интерфейс TrustTunnel?"; then
                 # Interface already configured — skip creation, just ensure default route
                 echo "Интерфейс ${IFACE_NAME} уже настроен, пропускаю создание."
                 if [ "$TT_MODE" = "tun" ]; then
-                    ndmc -c "ip route default ${NDMC_IFACE}"
+                    ndmc -c "ip route default $TUN_IP ${NDMC_IFACE}"
                     ndmc -c "ipv6 route default ${NDMC_IFACE}"
                 fi
             elif [ "$TT_MODE" = "socks5" ]; then
@@ -265,14 +265,14 @@ if ask_yes_no "Создать интерфейс TrustTunnel?"; then
                 echo "Настраиваю интерфейс ${NDMC_IFACE}..."
                 ndmc -c "interface ${NDMC_IFACE}"
                 ndmc -c "interface ${NDMC_IFACE} description \"TrustTunnel TUN ${TUN_IDX}\""
-                ndmc -c "interface ${NDMC_IFACE} ip global auto"
                 ndmc -c "interface ${NDMC_IFACE} ip address $TUN_IP 255.255.255.255"
                 ndmc -c "interface ${NDMC_IFACE} ipv6 address $TUN_IPV6"
+                ndmc -c "interface ${NDMC_IFACE} ip global auto"
                 ndmc -c "interface ${NDMC_IFACE} ip mtu 1280"
                 ndmc -c "interface ${NDMC_IFACE} ip tcp adjust-mss pmtu"
                 ndmc -c "interface ${NDMC_IFACE} security-level public"
                 ndmc -c "interface ${NDMC_IFACE} up"
-                ndmc -c "ip route default ${NDMC_IFACE}"
+                ndmc -c "ip route default $TUN_IP ${NDMC_IFACE}"
                 ndmc -c "ipv6 route default ${NDMC_IFACE}"
                 echo "Интерфейс ${NDMC_IFACE} настроен."
             fi
