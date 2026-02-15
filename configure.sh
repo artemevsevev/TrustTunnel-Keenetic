@@ -256,7 +256,7 @@ if ask_yes_no "Создать интерфейс TrustTunnel?"; then
                 ndmc -c "interface Proxy${PROXY_IDX} description \"TrustTunnel Proxy ${PROXY_IDX}\""
                 ndmc -c "interface Proxy${PROXY_IDX} proxy protocol socks5"
                 ndmc -c "interface Proxy${PROXY_IDX} proxy upstream 127.0.0.1 1080"
-                ndmc -c "interface Proxy${PROXY_IDX} proxy connect via ISP"
+                ndmc -c "interface Proxy${PROXY_IDX} proxy connect"
                 ndmc -c "interface Proxy${PROXY_IDX} ip global auto"
                 ndmc -c "interface Proxy${PROXY_IDX} security-level public"
                 echo "Интерфейс Proxy${PROXY_IDX} настроен."
