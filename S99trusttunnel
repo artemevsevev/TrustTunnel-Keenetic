@@ -81,6 +81,11 @@ rename_tun_iface() {
     log_info "Renaming tun0 to $OPKG_IFACE..."
     ip link set tun0 down 2>/dev/null
     ip link set tun0 name "$OPKG_IFACE" 2>/dev/null
+
+    # Clear IP addresses set by the client on tun0. This will force NDM (KeeneticOS)
+    # to re-apply the interface configuration and activate statistics collection for the dashboard.
+    ip addr flush dev "$OPKG_IFACE" 2>/dev/null
+
     ip link set "$OPKG_IFACE" up 2>/dev/null
     # Assign IPv6 address (client binary only sets IPv4)
     if [ -n "$TUN_IPV6" ]; then
