@@ -86,6 +86,10 @@ rename_tun_iface() {
     # to re-apply the interface configuration and activate statistics collection for the dashboard.
     ip addr flush dev "$OPKG_IFACE" 2>/dev/null
 
+    if [ -n "$TUN_IP" ]; then
+        ip addr add "$TUN_IP/32" dev "$OPKG_IFACE" 2>/dev/null
+    fi
+
     ip link set "$OPKG_IFACE" up 2>/dev/null
     # Assign IPv6 address (client binary only sets IPv4)
     if [ -n "$TUN_IPV6" ]; then
