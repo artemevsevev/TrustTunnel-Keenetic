@@ -1,4 +1,4 @@
-# Установка TrustTunnel с автозапуском на роутерах Keenetic
+# TrustTunnel на роутерах Keenetic
 
 [🇺🇸 Read this in English](README.md)
 

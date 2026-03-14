@@ -1,4 +1,4 @@
-# Installing TrustTunnel with Autostart on Keenetic routers
+# TrustTunnel on Keenetic routers
 
 [🇷🇺 Инструкция на русском языке](README_ru.md)
 
