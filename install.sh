@@ -6,10 +6,10 @@ GITHUB_REPO="artemevsevev/TrustTunnel-Keenetic"
 RAW_BASE="https://raw.githubusercontent.com/${GITHUB_REPO}"
 FALLBACK_REF="main"
 
-# --- Определение версии ---
+# --- Version determination ---
 RELEASE_TAG=""
 
-# Поддержка флага --version <tag>
+# Support --version <tag> flag
 while [ $# -gt 0 ]; do
     case "$1" in
         --dev)
@@ -28,9 +28,9 @@ while [ $# -gt 0 ]; do
 done
 
 if [ -n "$RELEASE_TAG" ]; then
-    echo "Указана версия: ${RELEASE_TAG}"
+    echo "Version specified: ${RELEASE_TAG}"
 else
-    # Автоопределение последнего релиза через GitHub API
+    # Auto-detect latest release via GitHub API
     API_RESPONSE=$(curl -fsSL --connect-timeout 10 --max-time 15 \
         "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" 2>/dev/null) || API_RESPONSE=""
     RELEASE_TAG=$(echo "$API_RESPONSE" | grep '"tag_name"' | \
@@ -39,19 +39,19 @@ fi
 
 if [ -n "$RELEASE_TAG" ]; then
     REPO_URL="${RAW_BASE}/${RELEASE_TAG}"
-    echo "=== Установщик TrustTunnel для Keenetic (${RELEASE_TAG}) ==="
+    echo "=== TrustTunnel Installer for Keenetic (${RELEASE_TAG}) ==="
 else
-    echo "Внимание: не удалось определить последний релиз. Используется ветка ${FALLBACK_REF}."
+    echo "Warning: failed to determine the latest release. Using branch ${FALLBACK_REF}."
     REPO_URL="${RAW_BASE}/${FALLBACK_REF}"
-    echo "=== Установщик TrustTunnel для Keenetic (${FALLBACK_REF}) ==="
+    echo "=== TrustTunnel Installer for Keenetic (${FALLBACK_REF}) ==="
 fi
 echo ""
 
-# --- Скачиваем и запускаем configure.sh из релиза ---
+# --- Download and run configure.sh from release ---
 CONFIGURE_SCRIPT=$(mktemp /tmp/tt_configure.XXXXXX)
 trap "rm -f '$CONFIGURE_SCRIPT'" EXIT
 
-echo "Скачиваю скрипт конфигурации..."
+echo "Downloading configuration script..."
 curl -fsSL "$REPO_URL/configure.sh" -o "$CONFIGURE_SCRIPT"
 chmod +x "$CONFIGURE_SCRIPT"
 

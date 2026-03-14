@@ -4,9 +4,9 @@ set -e
 # Uncomment for debugging:
 # set -x
 
-# REPO_URL передаётся из install.sh через переменную окружения
+# REPO_URL is passed from install.sh via environment variable
 if [ -z "$REPO_URL" ]; then
-    echo "Ошибка: REPO_URL не задан. Запустите install.sh."
+    echo "Error: REPO_URL is not set. Run install.sh."
     exit 1
 fi
 
@@ -14,9 +14,9 @@ cleanup_on_error() {
     exit_code=$?
     if [ $exit_code -ne 0 ]; then
         echo ""
-        echo "!!! Установка прервана из-за ошибки (код: $exit_code) !!!"
-        echo "Для повторной установки запустите скрипт заново."
-        echo "Для очистки вручную удалите:"
+        echo "!!! Installation aborted due to error (code: $exit_code) !!!"
+        echo "To reinstall, run the script again."
+        echo "To clean up manually, delete:"
         echo "  rm -f /opt/etc/init.d/S99trusttunnel"
         echo "  rm -f /opt/etc/ndm/wan.d/010-trusttunnel.sh"
         echo "  rm -f /opt/trusttunnel_client/mode.conf"
@@ -25,13 +25,13 @@ cleanup_on_error() {
 trap cleanup_on_error EXIT
 
 if [ ! -d "/opt" ]; then
-    echo "Ошибка: /opt не найден. Сначала установите Entware."
-    echo "Подробнее: https://help.keenetic.com/hc/en-us/articles/360021214160"
+    echo "Error: /opt not found. Install Entware first."
+    echo "Details: https://help.keenetic.com/hc/en-us/articles/360021214160"
     exit 1
 fi
 
 if ! command -v curl >/dev/null 2>&1; then
-    echo "Ошибка: команда 'curl' не найдена. Установите пакет curl:"
+    echo "Error: 'curl' command not found. Install curl package:"
     echo "  opkg update && opkg install curl"
     exit 1
 fi
@@ -48,7 +48,7 @@ ask_yes_no() {
 # === Stop running service ===
 INIT_SCRIPT="/opt/etc/init.d/S99trusttunnel"
 if [ -x "$INIT_SCRIPT" ]; then
-    echo "Останавливаю TrustTunnel..."
+    echo "Stopping TrustTunnel..."
     "$INIT_SCRIPT" stop || true
 fi
 
@@ -79,7 +79,7 @@ find_free_index() {
         return 0
     fi
 
-    echo "Обнаружены существующие ${_fi_prefix}-интерфейсы:"
+    echo "Discovered existing ${_fi_prefix}-interfaces:"
     echo "$_fi_scan" | { grep -E "${_fi_prefix}[0-9]+" || true; } | while read -r _fi_line; do
         echo "  $_fi_line"
     done
@@ -115,24 +115,24 @@ if [ "$EXISTING_MODE" = "tun" ]; then
 else
     default_mode=1
 fi
-echo "Выберите режим работы TrustTunnel:"
-echo "  1) SOCKS5 — проксирование через интерфейс Proxy"
-echo "  2) TUN    — туннель через интерфейс OpkgTun (только для прошивки 5.x)"
-printf "Режим [%s]: " "$default_mode"
+echo "Select TrustTunnel operation mode:"
+echo "  1) SOCKS5 - proxying through Proxy interface"
+echo "  2) TUN    - tunnel through OpkgTun interface (only for firmware 5.x)"
+printf "Mode [%s]: " "$default_mode"
 read mode_choice < /dev/tty
 mode_choice="${mode_choice:-$default_mode}"
 case "$mode_choice" in
     2) TT_MODE="tun" ;;
     *) TT_MODE="socks5" ;;
 esac
-echo "Выбран режим: $TT_MODE"
+echo "Selected mode: $TT_MODE"
 echo ""
 
 TUN_IP="172.16.219.2"
 TUN_IPV6="fd01::2"
 if [ "$TT_MODE" = "tun" ]; then
     if ! command -v ip >/dev/null 2>&1; then
-        echo "Ошибка: команда 'ip' не найдена. Установите пакет ip-full:"
+        echo "Error: 'ip' command not found. Install ip-full package:"
         echo "  opkg update && opkg install ip-full"
         exit 1
     fi
@@ -142,15 +142,15 @@ if [ "$TT_MODE" = "tun" ]; then
 
     find_free_index "OpkgTun" "$EXISTING_TUN_IDX"
 
-    printf "Индекс TUN-интерфейса OpkgTun (по умолчанию %s): " "$default_idx"
+    printf "OpkgTun interface index (default %s): " "$default_idx"
     read tun_idx_input < /dev/tty
     TUN_IDX="${tun_idx_input:-$default_idx}"
     case "$TUN_IDX" in
         ''|*[!0-9]*)
-            echo "Ошибка: индекс должен быть неотрицательным числом."
+            echo "Error: index must be a non-negative number."
             exit 1 ;;
     esac
-    echo "Интерфейс: OpkgTun${TUN_IDX} (opkgtun${TUN_IDX})"
+    echo "Interface: OpkgTun${TUN_IDX} (opkgtun${TUN_IDX})"
     echo ""
     PROXY_IDX="${EXISTING_PROXY_IDX:-0}"
 else
@@ -158,35 +158,35 @@ else
 
     find_free_index "Proxy" "$EXISTING_PROXY_IDX"
 
-    printf "Индекс интерфейса Proxy (по умолчанию %s): " "$default_idx"
+    printf "Proxy interface index (default %s): " "$default_idx"
     read proxy_idx_input < /dev/tty
     PROXY_IDX="${proxy_idx_input:-$default_idx}"
     case "$PROXY_IDX" in
         ''|*[!0-9]*)
-            echo "Ошибка: индекс должен быть неотрицательным числом."
+            echo "Error: index must be a non-negative number."
             exit 1 ;;
     esac
-    echo "Интерфейс: Proxy${PROXY_IDX}"
+    echo "Interface: Proxy${PROXY_IDX}"
     echo ""
 fi
 
-echo "Создаю директории..."
+echo "Creating directories..."
 mkdir -p /opt/etc/init.d
 mkdir -p /opt/etc/ndm/wan.d
 mkdir -p /opt/var/run
 mkdir -p /opt/var/log
 mkdir -p /opt/trusttunnel_client
 
-echo "Скачиваю S99trusttunnel..."
+echo "Downloading S99trusttunnel..."
 curl -fsSL "$REPO_URL/S99trusttunnel" -o /opt/etc/init.d/S99trusttunnel
 chmod +x /opt/etc/init.d/S99trusttunnel
 
-echo "Скачиваю 010-trusttunnel.sh..."
+echo "Downloading 010-trusttunnel.sh..."
 curl -fsSL "$REPO_URL/010-trusttunnel.sh" -o /opt/etc/ndm/wan.d/010-trusttunnel.sh
 chmod +x /opt/etc/ndm/wan.d/010-trusttunnel.sh
 
 # === Write mode.conf ===
-echo "Сохраняю режим в /opt/trusttunnel_client/mode.conf..."
+echo "Saving mode to /opt/trusttunnel_client/mode.conf..."
 cat > /opt/trusttunnel_client/mode.conf <<MEOF
 # TrustTunnel mode: socks5 or tun
 TT_MODE="$TT_MODE"
@@ -204,18 +204,18 @@ PROXY_IDX="$PROXY_IDX"
 # HC_CURL_TIMEOUT=5
 # HC_SOCKS5_PROXY="127.0.0.1:1080"
 MEOF
-echo "mode.conf сохранён (TT_MODE=$TT_MODE)."
+echo "mode.conf saved (TT_MODE=$TT_MODE)."
 
 # === Interface ===
-if ask_yes_no "Создать интерфейс TrustTunnel?"; then
+if ask_yes_no "Create TrustTunnel interface?"; then
 
     if ! command -v ndmc >/dev/null 2>&1; then
-        echo "Ошибка: команда 'ndmc' не найдена. Настройка интерфейсов невозможна."
-        echo "Настройте интерфейс вручную через веб-интерфейс роутера."
+        echo "Error: 'ndmc' command not found. Interface configuration is not possible."
+        echo "Configure the interface manually via the router's web interface."
     else
         ndmc_iface_output=$(ndmc -c 'show interface' 2>&1) || {
-            echo "Ошибка: не удалось получить список интерфейсов от ndmc."
-            echo "Настройте интерфейс вручную через веб-интерфейс роутера."
+            echo "Error: failed to get interface list from ndmc."
+            echo "Configure the interface manually via the router's web interface."
             ndmc_iface_output=""
         }
 
@@ -238,20 +238,20 @@ if ask_yes_no "Создать интерфейс TrustTunnel?"; then
                 IFACE_NAME="${NDMC_IFACE}"
             fi
             if [ -n "$OLD_IFACE_NAME" ] && [ "$OLD_IFACE_NAME" != "$IFACE_NAME" ]; then
-                echo "Удаляю старый интерфейс ${OLD_IFACE_NAME}..."
+                echo "Removing old interface ${OLD_IFACE_NAME}..."
                 ndmc -c "no interface ${OLD_IFACE_NAME}" || true
             fi
 
             if [ -n "$OLD_IFACE_NAME" ] && [ "$OLD_IFACE_NAME" = "$IFACE_NAME" ]; then
                 # Interface already configured — skip creation, just ensure default route
-                echo "Интерфейс ${IFACE_NAME} уже настроен, пропускаю создание."
+                echo "Interface ${IFACE_NAME} is already configured, skipping creation."
                 if [ "$TT_MODE" = "tun" ]; then
                     ndmc -c "ip route default $TUN_IP ${NDMC_IFACE}"
                     ndmc -c "ipv6 route default ${NDMC_IFACE}"
                 fi
             elif [ "$TT_MODE" = "socks5" ]; then
                 # --- SOCKS5 Interface ---
-                echo "Настраиваю интерфейс Proxy${PROXY_IDX}..."
+                echo "Configuring Proxy${PROXY_IDX} interface..."
                 ndmc -c "interface Proxy${PROXY_IDX}"
                 ndmc -c "interface Proxy${PROXY_IDX} description \"TrustTunnel Proxy ${PROXY_IDX}\""
                 ndmc -c "interface Proxy${PROXY_IDX} proxy protocol socks5"
@@ -259,10 +259,10 @@ if ask_yes_no "Создать интерфейс TrustTunnel?"; then
                 ndmc -c "interface Proxy${PROXY_IDX} proxy connect"
                 ndmc -c "interface Proxy${PROXY_IDX} ip global auto"
                 ndmc -c "interface Proxy${PROXY_IDX} security-level public"
-                echo "Интерфейс Proxy${PROXY_IDX} настроен."
+                echo "Proxy${PROXY_IDX} interface configured."
             else
                 # --- TUN Interface ---
-                echo "Настраиваю интерфейс ${NDMC_IFACE}..."
+                echo "Configuring ${NDMC_IFACE} interface..."
                 ndmc -c "interface ${NDMC_IFACE}"
                 ndmc -c "interface ${NDMC_IFACE} description \"TrustTunnel TUN ${TUN_IDX}\""
                 ndmc -c "interface ${NDMC_IFACE} ip address $TUN_IP 255.255.255.255"
@@ -274,48 +274,48 @@ if ask_yes_no "Создать интерфейс TrustTunnel?"; then
                 ndmc -c "interface ${NDMC_IFACE} up"
                 ndmc -c "ip route default $TUN_IP ${NDMC_IFACE}"
                 ndmc -c "ipv6 route default ${NDMC_IFACE}"
-                echo "Интерфейс ${NDMC_IFACE} настроен."
+                echo "${NDMC_IFACE} interface configured."
             fi
 
             ndmc -c 'system configuration save'
-            echo "Конфигурация сохранена."
+            echo "Configuration saved."
         fi
     fi
 else
-    echo "Настройка интерфейса пропущена."
+    echo "Interface configuration skipped."
 fi
 
 
 # === TrustTunnel install ===
-if ask_yes_no "Установить/Обновить TrustTunnel Client?"; then
-    echo "Запускаю установку TrustTunnel..."
+if ask_yes_no "Install/Update TrustTunnel Client?"; then
+    echo "Starting TrustTunnel installation..."
     curl -fsSL https://raw.githubusercontent.com/TrustTunnel/TrustTunnelClient/refs/heads/master/scripts/install.sh | sh -s -
-    echo "Установка TrustTunnel завершена."
+    echo "TrustTunnel installation completed."
 else
-    echo "Установка TrustTunnel пропущена."
+    echo "TrustTunnel installation skipped."
 fi
 
 echo ""
-echo "=== Установка завершена ==="
+echo "=== Installation completed ==="
 echo ""
-echo "Дальнейшие шаги:"
-echo "1. Создайте файл конфигурации /opt/trusttunnel_client/trusttunnel_client.toml"
+echo "Next steps:"
+echo "1. Create a configuration file /opt/trusttunnel_client/trusttunnel_client.toml"
 if [ "$TT_MODE" = "tun" ]; then
     echo ""
-    echo "   В конфигурации клиента добавьте секцию [listener.tun]:"
+    echo "   Add the [listener.tun] section to the client configuration:"
     echo "   [listener.tun]"
     echo "   included_routes = []"
     echo "   excluded_routes = []"
     echo "   change_system_dns = false"
     echo ""
-    echo "   Секции [listener.socks] в файле быть не должно."
+    echo "   The [listener.socks] section should not be in the file."
 else
     echo ""
-    echo "   В конфигурации клиента должна быть секция [listener.socks]."
-    echo "   Секции [listener.tun] в файле быть не должно."
+    echo "   The client configuration must contain the [listener.socks] section."
+    echo "   The [listener.tun] section should not be in the file."
 fi
 echo ""
-echo "2. Запустите сервис: /opt/etc/init.d/S99trusttunnel start"
+echo "2. Start the service: /opt/etc/init.d/S99trusttunnel start"
 echo ""
 
 exit 0
