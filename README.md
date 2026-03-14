@@ -1,39 +1,41 @@
-# Установка TrustTunnel с автозапуском на Keenetic
+# Installing TrustTunnel with Autostart on Keenetic routers
 
-## Предварительные требования
+[🇷🇺 Инструкция на русском языке](README_ru.md)
 
-Перед установкой на роутер необходимо:
-1. Установить Entware на роутер: [Инструкция по установке Entware](https://help.keenetic.com/hc/ru/articles/360021214160-%D0%A3%D1%81%D1%82%D0%B0%D0%BD%D0%BE%D0%B2%D0%BA%D0%B0-%D1%81%D0%B8%D1%81%D1%82%D0%B5%D0%BC%D1%8B-%D0%BF%D0%B0%D0%BA%D0%B5%D1%82%D0%BE%D0%B2-%D1%80%D0%B5%D0%BF%D0%BE%D0%B7%D0%B8%D1%82%D0%BE%D1%80%D0%B8%D1%8F-Entware-%D0%BD%D0%B0-USB-%D0%BD%D0%B0%D0%BA%D0%BE%D0%BF%D0%B8%D1%82%D0%B5%D0%BB%D1%8C)
-2. Для использования в режиме Proxy, установить на роутере компонент "Клиент прокси".
-3. Установить curl:
+## Prerequisites
+
+Before installing on the router, you must:
+1. Install Entware on the router: [Entware Installation Guide](https://help.keenetic.com/hc/en-us/articles/360021214160-Installing-the-Entware-package-system-repository-on-a-USB-drive)
+2. To use in Proxy mode, install the "Proxy client" component on the router.
+3. Install curl:
    ```bash
    opkg update
    opkg install curl
    ```
-4. Установить и настроить сервер TrustTunnel на VPS (см. ниже)
+4. Install and configure the TrustTunnel server on a VPS (see below)
 
-### 1. Установка сервера на VPS
+### 1. Installing Server on VPS
 
-На VPS с Linux (x86_64 или aarch64) выполните:
+On a Linux VPS (x86_64 or aarch64), run:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/TrustTunnel/TrustTunnel/refs/heads/master/scripts/install.sh | sh -s -
 ```
 
-Сервер установится в `/opt/trusttunnel`. Запустите мастер настройки:
+The server will be installed in `/opt/trusttunnel`. Run the setup wizard:
 
 ```bash
 cd /opt/trusttunnel/
 sudo ./setup_wizard
 ```
 
-Мастер запросит:
-- Адрес для прослушивания (по умолчанию `0.0.0.0:443`)
-- Учетные данные пользователя
-- Путь для хранения правил фильтрации
-- Выбор сертификата (Let's Encrypt, самоподписанный или существующий)
+The wizard will prompt for:
+- Listen address (default `0.0.0.0:443`)
+- User credentials
+- Path for storing filtering rules
+- Certificate selection (Let's Encrypt, self-signed, or existing)
 
-Настройте автозапуск через systemd:
+Set up autostart via systemd:
 
 ```bash
 cp /opt/trusttunnel/trusttunnel.service.template /etc/systemd/system/trusttunnel.service
@@ -41,26 +43,26 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now trusttunnel
 ```
 
-#### Настройка Let's Encrypt с автообновлением
+#### Setting up Let's Encrypt with Auto-renewal
 
-Установите Certbot:
+Install Certbot:
 
 ```bash
 sudo apt update
 sudo apt install -y certbot
 ```
 
-Получите сертификат (замените `example.com` на ваш домен):
+Get a certificate (replace `example.com` with your domain):
 
 ```bash
 sudo certbot certonly --standalone -d example.com
 ```
 
-Сертификаты сохранятся в:
+Certificates will be saved in:
 - `/etc/letsencrypt/live/example.com/fullchain.pem`
 - `/etc/letsencrypt/live/example.com/privkey.pem`
 
-Укажите пути в конфигурации TrustTunnel (`hosts.toml`):
+Specify the paths in the TrustTunnel configuration (`hosts.toml`):
 
 ```toml
 [[main_hosts]]
@@ -69,81 +71,81 @@ cert_chain_path = "/etc/letsencrypt/live/example.com/fullchain.pem"
 private_key_path = "/etc/letsencrypt/live/example.com/privkey.pem"
 ```
 
-Настройте автоматический перезапуск сервера после обновления сертификата:
+Configure automatic server restart after certificate renewal:
 
 ```bash
 sudo certbot reconfigure --deploy-hook "systemctl reload trusttunnel"
 ```
 
-Проверьте работу автообновления:
+Verify auto-renewal works:
 
 ```bash
 sudo certbot renew
 ```
 
-#### Экспорт конфигурации для клиента
+#### Exporting Configuration for the Client
 
-После настройки сервера экспортируйте конфигурацию для клиента:
+After configuring the server, export the configuration for the client:
 
 ```bash
 cd /opt/trusttunnel/
-./trusttunnel_endpoint vpn.toml hosts.toml -c имя_клиента -a публичный_ip_сервера --format toml > config.toml
+./trusttunnel_endpoint vpn.toml hosts.toml -c client_name -a server_public_ip --format toml > config.toml
 ```
 
-Это создаст файл конфигурации `config.toml`, который нужно передать на роутер.
+This will create a `config.toml` file that you need to transfer to the router.
 
-### 2. Установка клиента на Keenetic
+### 2. Installing Client on Keenetic
 
-Выполните одну команду на роутере:
+Run a single command on the router:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/artemevsevev/TrustTunnel-Keenetic/main/install.sh | sh
 ```
 
-> Скрипт автоматически определяет последнюю стабильную версию (GitHub Release).
-> Для установки конкретной версии:
+> The script automatically detects the latest stable version (GitHub Release).
+> To install a specific version:
 > ```bash
 > curl -fsSL https://raw.githubusercontent.com/artemevsevev/TrustTunnel-Keenetic/main/install.sh | sh -s -- --version v1.0.0
 > ```
 
-> Для установки из ветки `main` (последняя dev-версия):
+> To install from the `main` branch (latest dev version):
 > ```bash
 > curl -fsSL https://raw.githubusercontent.com/artemevsevev/TrustTunnel-Keenetic/main/install.sh | sh -s -- --dev
 > ```
 
-Скрипт установки выполнит следующее:
-1. Остановит работающий сервис TrustTunnel (если запущен)
-2. Предложит выбрать режим работы (SOCKS5 или TUN); при повторной настройке по умолчанию предлагается текущий режим
-3. Автоматически определит занятые интерфейсы (Proxy для SOCKS5, OpkgTun для TUN) и предложит первый свободный индекс
-4. Скачает и установит скрипты автозапуска (`S99trusttunnel`, `010-trusttunnel.sh`)
-5. Сохранит выбранный режим в `/opt/trusttunnel_client/mode.conf`
-6. Предложит создать интерфейс (ProxyN для SOCKS5 или OpkgTunN для TUN) в Keenetic; при смене режима или индекса удалит старый интерфейс
-7. Предложит установить/обновить клиент TrustTunnel (поддерживаемые архитектуры: x86_64, aarch64, armv7, mips, mipsel)
+The installation script will perform the following:
+1. Stop the running TrustTunnel service (if running)
+2. Prompt to select the operation mode (SOCKS5 or TUN); during reconfiguration, the current mode is proposed by default
+3. Automatically determine occupied interfaces (Proxy for SOCKS5, OpkgTun for TUN) and propose the first free index
+4. Download and install autostart scripts (`S99trusttunnel`, `010-trusttunnel.sh`)
+5. Save the selected mode to `/opt/trusttunnel_client/mode.conf`
+6. Prompt to create an interface (ProxyN for SOCKS5 or OpkgTunN for TUN) in Keenetic; when changing the mode or index, it will delete the old interface
+7. Prompt to install/update the TrustTunnel client (supported architectures: x86_64, aarch64, armv7, mips, mipsel)
 
-### Сравнение режимов
+### Mode Comparison
 
 | | SOCKS5 (ProxyN) | TUN (OpkgTunN) |
 |---|---|---|
-| Интерфейс Keenetic | ProxyN (по умолчанию Proxy0) | OpkgTunN (по умолчанию OpkgTun0) |
-| Тип трафика | TCP через SOCKS5-прокси | Весь трафик (TCP/UDP/ICMP) через TUN |
-| Производительность | Ниже (userspace-прокси) | Выше (kernel TUN) |
-| Совместимость | Все версии Keenetic с Entware | Keenetic firmware v5+ с поддержкой OpkgTun |
-| Требования | — | Пакет `ip-full` в Entware, IP-адрес от VPN-сервера |
+| Keenetic Interface | ProxyN (Proxy0 by default) | OpkgTunN (OpkgTun0 by default) |
+| Traffic Type | TCP via SOCKS5 proxy | All traffic (TCP/UDP/ICMP) via TUN |
+| Performance | Lower (userspace proxy) | Higher (kernel TUN) |
+| Compatibility | All Keenetic versions with Entware | Keenetic firmware v5+ with OpkgTun support |
+| Requirements | — | `ip-full` package in Entware, IP address from VPN server |
 
-#### Настройка клиента
+#### Client Configuration
 
-Сгенерируйте конфигурацию из файла, экспортированного с сервера:
+Generate the configuration from the file exported from the server:
 
 ```bash
 cd /opt/trusttunnel_client/
 ./setup_wizard --mode non-interactive --endpoint_config config.toml --settings trusttunnel_client.toml
 ```
 
-Подробная документация: https://github.com/TrustTunnel/TrustTunnel
+Detailed documentation: https://github.com/TrustTunnel/TrustTunnel
 
-#### Конфигурация для режима SOCKS5
+#### Configuration for SOCKS5 Mode
 
-В файле `trusttunnel_client.toml` должен быть настроен SOCKS-прокси listener:
+The SOCKS proxy listener must be configured in `trusttunnel_client.toml`:
 
 ```toml
 [listener]
@@ -154,11 +156,11 @@ username = ""
 password = ""
 ```
 
-Секции `[listener.tun]` в файле быть не должно.
+There should be no `[listener.tun]` section in the file.
 
-#### Конфигурация для режима TUN
+#### Configuration for TUN Mode
 
-В файле `trusttunnel_client.toml` должен быть настроен TUN listener:
+The TUN listener must be configured in `trusttunnel_client.toml`:
 
 ```toml
 [listener]
@@ -171,32 +173,32 @@ change_system_dns = false
 mtu_size = 1280
 ```
 
-Секции `[listener.socks]` в файле быть не должно.
+There should be no `[listener.socks]` section in the file.
 
-Проверить запуск:
+Check the start:
 ```bash
 ./trusttunnel_client -c trusttunnel_client.toml
 ```
 
-После настройки запустите сервис:
+After configuration, start the service:
 ```bash
 /opt/etc/init.d/S99trusttunnel start
 ```
 
-### Настройка вручную в веб-интерфейсе Keenetic
+### Manual Configuration in Keenetic Web Interface
 
-#### Режим SOCKS5
+#### SOCKS5 Mode
 
-Если при установке вы пропустили автоматическое создание интерфейса, добавьте прокси-соединение вручную:
+If you skipped automatic interface creation during installation, add the proxy connection manually:
 
-1. Откройте веб-интерфейс Keenetic
-2. Перейдите в раздел **Другие подключения** -> **Прокси-соединения**
-3. Добавьте новое SOCKS5 прокси-соединение с адресом `127.0.0.1` и портом `1080` (имя интерфейса ProxyN, где N — индекс из `mode.conf`)
-4. Настройте маршрутизацию трафика через это соединение
+1. Open the Keenetic web interface
+2. Go to **Other connections** -> **Proxy connections**
+3. Add a new SOCKS5 proxy connection with address `127.0.0.1` and port `1080` (interface name ProxyN, where N is the index from `mode.conf`)
+4. Configure traffic routing through this connection
 
-#### Режим TUN
+#### TUN Mode
 
-Интерфейс OpkgTunN появится автоматически в веб-интерфейсе Keenetic после запуска клиента и переименования `tun0` в `opkgtunN` (N = индекс из `mode.conf`, по умолчанию 0). Для ручной настройки через CLI:
+The OpkgTunN interface will automatically appear in the Keenetic web interface after the client starts and renames `tun0` to `opkgtunN` (N = index from `mode.conf`, default is 0). For manual configuration via CLI:
 
 ```bash
 ndmc -c 'interface OpkgTunN'
@@ -210,246 +212,248 @@ ndmc -c 'interface OpkgTunN up'
 ndmc -c 'ip route default OpkgTunN'
 ```
 
-> **Важно:** Команда `ip route default` необходима для корректной работы политик маршрутизации Keenetic через OpkgTunN.
+> **Important:** The `ip route default` command is necessary for Keenetic's policy-based routing to work correctly through OpkgTunN.
 
-## Структура файлов
+## File Structure
 
 ```
 /opt/
 ├── etc/
 │   ├── init.d/
-│   │   └── S99trusttunnel          # Основной init-скрипт
+│   │   └── S99trusttunnel          # Main init script
 │   └── ndm/
 │       └── wan.d/
-│           └── 010-trusttunnel.sh  # Хук при поднятии WAN
+│           └── 010-trusttunnel.sh  # Hook on WAN up
 ├── var/
 │   ├── run/
-│   │   ├── trusttunnel.pid         # PID клиента
-│   │   ├── trusttunnel_watchdog.pid # PID watchdog
-│   │   ├── trusttunnel_hc_state    # Состояние health check
-│   │   └── trusttunnel_start_ts    # Время старта клиента (для grace period WAN-хука)
+│   │   ├── trusttunnel.pid         # Client PID
+│   │   ├── trusttunnel_watchdog.pid # Watchdog PID
+│   │   ├── trusttunnel_hc_state    # Health check state
+│   │   └── trusttunnel_start_ts    # Client start time (for WAN hook grace period)
 │   └── log/
-│       ├── trusttunnel.log         # Лог работы (ротация при 512 КБ)
-│       └── trusttunnel.log.old     # Предыдущий лог после ротации
+│       ├── trusttunnel.log         # Work log (rotates at 512 KB)
+│       └── trusttunnel.log.old     # Previous log after rotation
 └── trusttunnel_client/
-    ├── trusttunnel_client          # Бинарник клиента
-    ├── trusttunnel_client.toml     # Конфигурация
-    └── mode.conf                   # Режим работы (socks5/tun), TUN_IDX, PROXY_IDX, настройки HC
+    ├── trusttunnel_client          # Client binary
+    ├── trusttunnel_client.toml     # Configuration
+    └── mode.conf                   # Operation mode (socks5/tun), TUN_IDX, PROXY_IDX, HC settings
 ```
 
-## Ручная установка
+## Manual Installation
 
-Если вы предпочитаете ручную установку вместо скрипта:
+If you prefer manual installation instead of the script:
 
 ```bash
-VERSION="v1.0.0"  # Укажите нужную версию (тег GitHub Release)
+VERSION="v1.0.0"  # Specify the required version (GitHub Release tag)
 
-# Создаём директории
+# Create directories
 mkdir -p /opt/etc/init.d
 mkdir -p /opt/etc/ndm/wan.d
 mkdir -p /opt/var/run
 mkdir -p /opt/var/log
 
-# Init-скрипт
+# Init script
 curl -fsSL "https://raw.githubusercontent.com/artemevsevev/TrustTunnel-Keenetic/${VERSION}/S99trusttunnel" -o /opt/etc/init.d/S99trusttunnel
 chmod +x /opt/etc/init.d/S99trusttunnel
 
-# WAN-хук
+# WAN hook
 curl -fsSL "https://raw.githubusercontent.com/artemevsevev/TrustTunnel-Keenetic/${VERSION}/010-trusttunnel.sh" -o /opt/etc/ndm/wan.d/010-trusttunnel.sh
 chmod +x /opt/etc/ndm/wan.d/010-trusttunnel.sh
 
-# Убедитесь, что клиент исполняемый
+# Ensure the client is executable
 chmod +x /opt/trusttunnel_client/trusttunnel_client
 ```
 
-## Использование
+## Usage
 
-### Управление сервисом
+### Service Management
 
 ```bash
-# Запуск (клиент + watchdog)
+# Start (client + watchdog)
 /opt/etc/init.d/S99trusttunnel start
 
-# Остановка (клиент + watchdog)
+# Stop (client + watchdog)
 /opt/etc/init.d/S99trusttunnel stop
 
-# Полный перезапуск
+# Full restart
 /opt/etc/init.d/S99trusttunnel restart
 
-# Мягкий перезапуск (только клиент, watchdog перезапустит его)
+# Soft restart (only client, watchdog will restart it)
 /opt/etc/init.d/S99trusttunnel reload
 
-# Проверка статуса
+# Check status
 /opt/etc/init.d/S99trusttunnel status
 ```
 
-### Просмотр логов
+### Viewing Logs
 
 ```bash
-# Текущий лог
+# Current log
 cat /opt/var/log/trusttunnel.log
 
-# В реальном времени
+# Real-time
 tail -f /opt/var/log/trusttunnel.log
 ```
 
-Лог автоматически ротируется при достижении 512 КБ: текущий файл переименовывается в `trusttunnel.log.old`.
+The log is automatically rotated when it reaches 512 KB: the current file is renamed to `trusttunnel.log.old`.
 
-## Как это работает
+## How It Works
 
-### Автозапуск при загрузке
-- Entware автоматически запускает все скрипты `S*` в `/opt/etc/init.d/` при старте
-- Скрипт `S99trusttunnel` запускается последним (99 = высокий приоритет)
+### Autostart on Boot
+- Entware automatically runs all `S*` scripts in `/opt/etc/init.d/` at startup
+- The `S99trusttunnel` script runs last (99 = high priority)
 
-### Watchdog (перезапуск при падении)
-- После запуска клиента стартует фоновый процесс watchdog
-- Каждые 10 секунд проверяет, жив ли клиент
-- При падении автоматически перезапускает с линейным backoff: 10с, 20с, 30с... до 300с (максимум 10 попыток)
-- Дополнительно проверяет реальную связность через туннель (health check)
+### Watchdog (Restart on Crash)
+- After the client starts, a background watchdog process starts
+- Checks every 10 seconds if the client is alive
+- On crash, automatically restarts with linear backoff: 10s, 20s, 30s... up to 300s (max 10 attempts)
+- Additionally checks real connectivity through the tunnel (health check)
 
-### Переподключение WAN
-- Keenetic вызывает скрипты из `/opt/etc/ndm/wan.d/` при поднятии WAN
-- Скрипт `010-trusttunnel.sh` инициирует перезапуск клиента, с рядом защит:
-  - **Пропуск собственного интерфейса** — если WAN-событие вызвано нашим же `OpkgTunN`, перезапуск не происходит (предотвращает бесконечный цикл)
-  - **Grace period** — если клиент запущен менее 30 секунд назад, перезапуск пропускается
-  - **Проверка состояния сервиса** — перезапуск только если watchdog активен (сервис запущен)
-- В режиме TUN: перед перезапуском опускаются интерфейсы `opkgtunN`/`tun0`
-- Watchdog подхватит и запустит клиент заново
+### WAN Reconnection
+- Keenetic calls scripts from `/opt/etc/ndm/wan.d/` on WAN up
+- The `010-trusttunnel.sh` script initiates a client restart, with several protections:
+  - **Skip own interface** — if the WAN event is triggered by our own `OpkgTunN`, no restart occurs (prevents an infinite loop)
+  - **Grace period** — if the client was started less than 30 seconds ago, the restart is skipped
+  - **Service state check** — restart only if the watchdog is active (service is running)
+- In TUN mode: interfaces `opkgtunN`/`tun0` are brought down before restarting
+- The watchdog will pick up and start the client again
 
-### Health check (мониторинг связности)
+### Health Check (Connectivity Monitoring)
 
-Watchdog проверяет не только живость процесса, но и реальную связность через туннель:
+The watchdog checks not only the process liveness but also real connectivity through the tunnel:
 
-- **TUN-режим**: HTTP-запрос через интерфейс `opkgtunN` (`curl --interface`)
-- **SOCKS5-режим**: HTTP-запрос через прокси (`curl --socks5`, по умолчанию `127.0.0.1:1080`, настраивается через `HC_SOCKS5_PROXY`)
+- **TUN mode**: HTTP request via the `opkgtunN` interface (`curl --interface`)
+- **SOCKS5 mode**: HTTP request via proxy (`curl --socks5`, default `127.0.0.1:1080`, configurable via `HC_SOCKS5_PROXY`)
 
-Оба режима используют легковесный connectivity-check endpoint (HTTP 204, без тела).
+Both modes use a lightweight connectivity-check endpoint (HTTP 204, no body).
 
-Параметры по умолчанию:
+Default parameters:
 
-| Параметр | Значение | Описание |
+| Parameter | Value | Description |
 |---|---|---|
-| `HC_ENABLED` | `yes` | Включить/выключить health check |
-| `HC_INTERVAL` | `30` | Интервал проверки (секунды) |
-| `HC_FAIL_THRESHOLD` | `3` | Сбоев подряд до переподключения |
-| `HC_GRACE_PERIOD` | `60` | Пауза без проверок после (пере)старта |
-| `HC_TARGET_URL` | `http://connectivitycheck.gstatic.com/generate_204` | URL для проверки связности |
-| `HC_CURL_TIMEOUT` | `5` | Таймаут curl (секунды) |
-| `HC_SOCKS5_PROXY` | `127.0.0.1:1080` | Адрес SOCKS5-прокси для проверки (режим SOCKS5) |
+| `HC_ENABLED` | `yes` | Enable/disable health check |
+| `HC_INTERVAL` | `30` | Check interval (seconds) |
+| `HC_FAIL_THRESHOLD` | `3` | Consecutive failures before reconnecting |
+| `HC_GRACE_PERIOD` | `60` | Pause without checks after (re)start |
+| `HC_TARGET_URL` | `http://connectivitycheck.gstatic.com/generate_204` | URL for connectivity check |
+| `HC_CURL_TIMEOUT` | `5` | Curl timeout (seconds) |
+| `HC_SOCKS5_PROXY` | `127.0.0.1:1080` | SOCKS5 proxy address for checking (SOCKS5 mode) |
 
-Для настройки раскомментируйте и измените параметры в `/opt/trusttunnel_client/mode.conf`.
+To configure, uncomment and change the parameters in `/opt/trusttunnel_client/mode.conf`.
 
-Для полного отключения health check:
+To completely disable health check:
 ```
 HC_ENABLED="no"
 ```
 
-Текущий статус health check отображается в выводе `status`:
+The current health check status is shown in the `status` output:
 ```bash
 /opt/etc/init.d/S99trusttunnel status
 # Health check: ok (2025-01-15 12:34:56)
 ```
 
-### Режим TUN (OpkgTunN)
-- TrustTunnel Client создаёт интерфейс `tun0`
-- Init-скрипт ожидает появления `tun0` (до 30 секунд) и переименовывает его в `opkgtunN` (N = индекс из `mode.conf`)
-- Keenetic распознаёт `opkgtunN` как интерфейс `OpkgTunN` и применяет маршрутизацию/firewall
-- Watchdog проверяет и исправляет непереименованный `tun0` при каждом цикле
+### TUN Mode (OpkgTunN)
+- TrustTunnel Client creates a `tun0` interface
+- The init script waits for `tun0` to appear (up to 30 seconds) and renames it to `opkgtunN` (N = index from `mode.conf`)
+- Keenetic recognizes `opkgtunN` as an `OpkgTunN` interface and applies routing/firewall
+- The watchdog checks and fixes an unrenamed `tun0` on every cycle
 
-### Защита от дублей
-- PID-файл предотвращает запуск нескольких экземпляров
-- Проверка через `pidof` как fallback
+### Duplicate Protection
+- A PID file prevents starting multiple instances
+- Check via `pidof` as a fallback
 
-## Отключение автозапуска
+## Disabling Autostart
 
 ```bash
-# Временно (до следующего ребута)
+# Temporarily (until next reboot)
 /opt/etc/init.d/S99trusttunnel stop
 
-# Постоянно
-# Измените ENABLED=yes на ENABLED=no в скрипте
-# или удалите/переименуйте скрипт:
+# Permanently
+# Change ENABLED=yes to ENABLED=no in the script
+# or delete/rename the script:
 mv /opt/etc/init.d/S99trusttunnel /opt/etc/init.d/_S99trusttunnel
 ```
 
 ## Troubleshooting
 
-### Клиент не запускается
+### Client doesn't start
 ```bash
-# Проверьте права
+# Check permissions
 ls -la /opt/trusttunnel_client/
 
-# Попробуйте запустить вручную
+# Try to run manually
 /opt/trusttunnel_client/trusttunnel_client -c /opt/trusttunnel_client/trusttunnel_client.toml
 
-# Проверьте лог
+# Check the log
 cat /opt/var/log/trusttunnel.log
 ```
 
-### Watchdog не работает
+### Watchdog isn't working
 ```bash
-# Проверьте процессы
+# Check processes
 ps | grep trusttunnel
 
-# Проверьте PID файлы
+# Check PID files
 cat /opt/var/run/trusttunnel_watchdog.pid
 ```
 
-### WAN-хук не срабатывает
+### WAN hook doesn't trigger
 ```bash
-# Проверьте права
+# Check permissions
 ls -la /opt/etc/ndm/wan.d/
 
-# Проверьте, что Keenetic поддерживает ndm хуки
-# (требуется установленный пакет opt в прошивке)
+# Check that Keenetic supports ndm hooks
+# (requires installed opt package in firmware)
 ```
 
-### TUN-интерфейс не появляется (режим TUN)
+### TUN interface doesn't appear (TUN mode)
 ```bash
-# Проверьте текущий режим и TUN_IDX в mode.conf
+# Check the current mode and TUN_IDX in mode.conf
 cat /opt/trusttunnel_client/mode.conf
 
-# Проверьте наличие tun0 / opkgtunN
+# Check for tun0 / opkgtunN
 ip link show tun0
-ip link show opkgtunN  # N = TUN_IDX из mode.conf
+ip link show opkgtunN  # N = TUN_IDX from mode.conf
 
-# Проверьте, что ip-full установлен
+# Check that ip-full is installed
 opkg list-installed | grep ip-full
 
-# Попробуйте переименовать вручную (замените N на индекс)
+# Try to rename manually (replace N with index)
 ip link set tun0 down
 ip link set tun0 name opkgtunN
 ip link set opkgtunN up
 
-# Проверьте лог на ошибки переименования
+# Check the log for rename errors
 logread | grep TrustTunnel | tail -20
 ```
 
-### Health check вызывает частые переподключения
+### Health check causes frequent reconnections
 
-Если туннель работает, но health check регулярно фиксирует сбои и перезапускает клиент:
+If the tunnel works, but the health check regularly detects failures and restarts the client:
 
 ```bash
-# Увеличьте порог сбоев и интервал проверки в /opt/trusttunnel_client/mode.conf:
+# Increase the failure threshold and check interval in /opt/trusttunnel_client/mode.conf:
 HC_FAIL_THRESHOLD=5
 HC_INTERVAL=60
 
-# Или полностью отключите health check:
+# Or completely disable health check:
 HC_ENABLED="no"
 
-# Перезапустите сервис после изменения настроек:
+# Restart the service after changing settings:
 /opt/etc/init.d/S99trusttunnel restart
 ```
 
-### OpkgTunN не виден в веб-интерфейсе Keenetic
+### OpkgTunN isn't visible in the Keenetic web interface
 ```bash
-# Проверьте, что интерфейс создан в Keenetic (замените N на индекс из mode.conf)
+# Check that the interface is created in Keenetic (replace N with index from mode.conf)
 ndmc -c 'show interface' | grep OpkgTunN
 
-# Если нет — создайте вручную (замените N и IP)
+# If not — create it manually (replace N and IP)
 ndmc -c 'interface OpkgTunN'
 ndmc -c 'interface OpkgTunN ip address 172.16.219.2 255.255.255.255'
 ndmc -c 'interface OpkgTunN ip global auto'
+ndmc -c 'interface OpkgTunN ip mtu 1280'
+ndmc -c 'interface OpkgTunN ip tcp adjust-mss pmtu'
 ndmc -c 'interface OpkgTunN security-level public'
 ndmc -c 'interface OpkgTunN up'
 ndmc -c 'ip route default OpkgTunN'
